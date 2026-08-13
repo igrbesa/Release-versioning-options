@@ -296,6 +296,31 @@ The shared pattern for versioned software is Option A:
 
 Git-flow is a 2010 packaging of that idea with extra immortal branches. Big companies that ship versions did not keep the extra branches; they kept the release lines and the cherry-picks.
 
+### Open source examples of Option A
+
+These projects all develop on one trunk, cut a release branch, tag ships, and **cherry-pick fixes from trunk onto the release line**. They do not merge the release branch back into trunk as a routine step.
+
+| Project | Closest to our… | Trunk | Release lines | How fixes move | Official docs |
+| --- | --- | --- | --- | --- | --- |
+| [Kubernetes](https://github.com/kubernetes/kubernetes) | versioned platform | `master` | `release-1.34`, `release-1.33`, … | Fix on master, cherry-pick newest → oldest supported branch | [cherry-picks.md](https://github.com/kubernetes/community/blob/main/contributors/devel/sig-release/cherry-picks.md) |
+| [Node.js](https://github.com/nodejs/node) | runtime / npm-consumed | `main` | `v22.x`, `v20.x` (+ `-staging`) | Land on `main`, backport onto staging/release lines | [backporting](https://github.com/nodejs/node/blob/main/doc/contributing/backporting-to-release-lines.md), [Release WG](https://github.com/nodejs/Release) |
+| [CPython](https://github.com/python/cpython) | language / stdlib | `main` | `3.13`, `3.12`, … | Fix on `main`, `cherry_picker` opens PRs onto maintenance branches | [development cycle](https://devguide.python.org/developer-workflow/development-cycle/), [cherry-picker](https://github.com/python/cherry-picker) |
+| [Go](https://github.com/golang/go) | language / toolchain | `master` | `release-branch.go1.25`, … | Fix on master first, then cherry-pick CL to the last two release branches. Branches are **never merged back** to master | [MinorReleases](https://go.dev/wiki/MinorReleases), [support window](https://go.dev/doc/devel/release) |
+| [.NET runtime](https://github.com/dotnet/runtime) | **NuGet** / platform | `main` | `release/10.0`, `release/9.0-staging`, … | PR to `main`, then `/backport to release/X.0`. “Fixes here do not flow to follow-up releases” via merge | [branching guide](https://github.com/dotnet/runtime/blob/main/docs/project/branching-guide.md), [library servicing](https://github.com/dotnet/runtime/blob/main/docs/project/library-servicing.md) |
+| [TypeScript](https://github.com/microsoft/TypeScript) | **npm package** | `main` | `release-5.9`, `release-6.0`, … | After RC, `main` is the next version; critical fixes are cherry-picked (`@typescript-bot cherry-pick this to release-X.Y`) | [release process](https://github.com/microsoft/TypeScript/wiki/TypeScript's-Release-Process) |
+| [Wireshark](https://gitlab.com/wireshark/wireshark) | shipped application | `master` | `master-4.4`, `release-4.4`, … | Bug fixes cherry-picked from development to each stable branch | [Backporting](https://wiki.wireshark.org/Development/Backporting) |
+
+**Closest analogues for our repos**
+
+- **npm packages** → TypeScript, Node.js (consumers pin versions; patch old lines).
+- **NuGet packages** → `dotnet/runtime` (servicing branches + backport bot).
+- **Backend / platform with several supported versions** → Kubernetes, Go, CPython.
+- **Frontend SPA that only runs latest** → not this list; more like GitHub’s own [GitHub Flow](https://docs.github.com/en/get-started/using-github/github-flow).
+
+TypeScript is a useful npm-shaped example: they cut `release-X.Y` for beta, may still merge `main` into it until RC, then freeze. After RC, `main` is the *next* TypeScript and only cherry-picks go onto `release-X.Y`. That is the same “finish 1.4 while 1.5 has started” split.
+
+Go is the cleanest statement of the merge rule: [release branches are created from master; subsequent fixes are cherry-picked; by design they are never merged with master](https://github.com/golang/go/issues/18005#issuecomment-264169921).
+
 ---
 
 ## Comparison
