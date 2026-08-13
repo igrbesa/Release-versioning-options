@@ -348,7 +348,9 @@ Yes. `release/X.Y` is temporary. Delete it when you will not ship another `X.Y.Z
 
 Do **not** delete the branch at `v1.4.0`. That is when maintenance *starts*. Delete it when the support window for 1.4 ends (for example when 1.6 ships and you only patch current + previous minor).
 
-After deletion, the shipped code is still reachable via tags. If you ever need an emergency patch for an unsupported line, recreate the branch from the last tag (`git checkout -b release/1.4 v1.4.2`), patch, tag `v1.4.3`, then delete the branch again.
+Deleting the branch does **not** delete tags. In Git they are different refs (`refs/heads/release/1.4` vs `refs/tags/v1.4.0`). The tagged commits stay reachable through the tags, so they are not garbage-collected. GitHub Releases stay too — they are attached to the tag, not to the branch.
+
+After deletion, `git checkout v1.4.2` still works. If you ever need an emergency patch for an unsupported line, recreate the branch from the last tag (`git checkout -b release/1.4 v1.4.2`), patch, tag `v1.4.3`, then delete the branch again.
 
 `main` is never deleted.
 
