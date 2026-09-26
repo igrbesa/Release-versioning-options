@@ -12,18 +12,18 @@ customer  →  frontend  →  BFF  →  core1
 
 | Repo | Role |
 | --- | --- |
-| **frontend** | What the user sees. Calls only the BFF. |
+| **frontend** | What the user sees. Calls only the BFF. React micro app that comoes together with shell. Shell versioned in separate repo |
 | **bff** | Backend for frontend. The only caller of the cores. |
-| **core1, core2, core3** | Core services consumed by the BFF. |
+| **core1, core2, core3** | Core services consumed by the BFF. connects to Db, storage... |
 
 Each repo uses **Option A** from [RELEASE_VERSIONING.md](./RELEASE_VERSIONING.md): `main`, `release/X.Y` while that component line is supported, tags `vX.Y.Z`, fix on `main`, cherry-pick onto the release branch. This document does not change that. It adds the two things Option A does not cover:
 
-1. **Customer tickets.** A second Jira board, owned by the customer, whose status must move when NMM work moves.
+1. **Customer tickets.** A second Jira board, or multiple customer board own by supperts, that are responsible to provide any service to customer.
 2. **The bundle.** The product version that pins one tag from each repo and is the only version customers and the customer board understand.
 
 ---
 
-## Two versions, on purpose
+## Two versions, bundle and per componnset, at the end of quarter bundle release is pubished
 
 A component version and a bundle version are different clocks. Do not collapse them into one number.
 
@@ -35,7 +35,7 @@ A component version and a bundle version are different clocks. Do not collapse t
 | Branch | `release/2.3` in the frontend repo | No Git branch. A manifest that points at five tags |
 | When it bumps | That repo changed | The set of tags we ship changed |
 
-`NMM 1.4.0` might pin `frontend 2.3.0`, `bff 4.1.0`, `core1 1.8.0`, `core2 3.0.1`, `core3 0.9.4`. The next patch bundle, `NMM 1.4.1`, might bump only `core1` and `bff` and repeat the other three tags unchanged.
+`NMM 1.4.0` bundle might pin `frontend 2.3.0`, `bff 4.1.0`, `core1 1.8.0`, `core2 3.0.1`, `core3 0.9.4`. The next patch bundle, `NMM 1.4.1`, might bump only `core1` and `bff` and repeat the other three tags unchanged.
 
 Customers never need a core version. Support answers “which NMM are you on?” Engineers answer “which tag of core1 is inside that NMM?”
 
@@ -56,6 +56,10 @@ components:
 Keep the manifest in a thin release record (a small repo, or the body of a GitHub Release named `nmm-v1.4.1`). The record is the source of truth for “what we shipped as NMM 1.4.1.” Jira Fix Version `NMM 1.4.1` is the same name, used so tickets can be released in bulk.
 
 Do not create `release/1.4` in every repo just because the bundle is 1.4. Each repo’s release branch follows **that repo’s** SemVer (`frontend` stays on `release/2.3`). The manifest is the join.
+
+### Quarterly bundle cadence
+
+TODO
 
 ---
 
@@ -152,20 +156,19 @@ stateDiagram-v2
     state "Resolved" as RES
     state "Closed" as CLO
 
-    [*] --> WFS: customer files ticket
+    [*] --> WFS: customer opens ticket
 
-    WFS --> ACC: bug confirmed, NMM parent linked
+    WFS --> ACC: bug confirmed, Support creates NMM parent, assigns PO, links customer bug
     WFS --> WFC: need info to triage
     WFS --> RES: answered, duplicate, not a bug
 
-    ACC --> INP: NMM parent in progress
+    ACC --> INP: Ticket in PB in progress
     ACC --> RES: won't fix, fixed in newer bundle
 
     INP --> WFC: need logs or repro
     INP --> WKA: customer unblocked
-    INP --> PEN: NMM parent Done
+    INP --> PEN: PB Ticket Done
 
-    WKA --> PEN: NMM parent Done
     WKA --> RES: workaround accepted as final
 
     WFC --> WFS: customer replies (from triage)
@@ -175,7 +178,6 @@ stateDiagram-v2
     PEN --> RES: bundle released
 
     RES --> CLO: customer confirms
-    RES --> CLO: 14 days, no reply
     RES --> WFS: still broken (reopen)
 
     CLO --> [*]
@@ -208,7 +210,8 @@ flowchart LR
         S1[Triage: classify, severity, Found in]
         S2[Ask concrete question]
         S3[Send workaround]
-        S4[Resolve with reason]
+        S4[Create NMM parent, assign PO, link customer bug]
+        S5[Resolve with reason]
     end
 
     subgraph E[NMM engineering]
@@ -222,14 +225,19 @@ flowchart LR
         R2[Write notes, mark Jira version Released]
     end
 
+    subgraph I[Implementation]
+      I1[Deliver released bundle to the customer]
+      I2[Coordinate installation and confirm the customer can verify]
+    end
+
     C1 --> S1
     S1 -- need info --> S2 --> C2 --> S1
-    S1 -- not a bug --> S4
-    S1 -- bug --> E1 --> E2
+    S1 -- not a bug --> S5
+    S1 -- bug --> S4 --> E1 --> E2
     E2 -. S1 / S2 .-> S3
     E2 --> E3 --> R1 --> R2
-    R2 -- automation: Resolved Fixed --> C3
-    S4 --> C4
+    R2 --> I1 --> I2 --> C3
+    S5 --> C4
     C3 --> C4
     C4 -- confirm --> CL([Closed])
     C4 -- still broken --> S1
@@ -244,38 +252,40 @@ sequenceDiagram
     actor Cu as Customer
     participant CB as Customer board
     participant Su as Support
-    participant NMM as NMM parent
-    participant Rel as Release
+    participant NMM as Product board
+    participant Rel as Bundle Release
+    participant Imp as Implementation
 
-    Cu->>CB: Files bug, Found in NMM 1.4.0
+    Cu->>CB: Reports bug, Found in NMM 1.4.0 bundle
     Note over CB: Waiting for support
-    Su->>CB: Triage, severity S2, link NMM-230
+    Su->>CB: Triage, confirmed defect, link to PB
+    Su->>NMM: Support creates NMM parent, assigns it to PO, links customer bug
+    Note over NMM: NMM parent created in backlog and assigned to PO
     Note over CB: Accepted
-    NMM-->>CB: Sub-task in progress
+    NMM->>NMM: Ticket put in sprint
+    Note over NMM: Ticket in progress
+    NMM-->>CB: Task in progress
     Note over CB: In progress
-    Su->>Cu: Workaround steps
-    Note over CB: Workaround provided
-    NMM-->>CB: Parent Done, Fix Version NMM 1.4.1
+    Note over NMM: Ticket Done
+    NMM-->>CB: Ticket Done, Fix Version NMM bundle 1.5.0
     Note over CB: Pending release
-    Rel-->>CB: NMM 1.4.1 released
-    Note over CB: Resolved (Fixed), verification window opens
-    Cu->>Cu: Installs NMM 1.4.1
+    Rel-->>CB: NMM bundle 1.5.0 released
+    Note over CB: Resolved (Fixed)
+    Imp->>Cu:Delivers NMM bundle 1.5.0
+    Cu->>Cu: Installs NMM 1.5.0
     alt Fix works
         Cu->>CB: Confirm
         Note over CB: Closed (Confirmed)
     else Still broken
         Cu->>CB: Still broken + reason
         Note over CB: Waiting for support (reopen)
-    else No reply for 14 days
-        CB-->>CB: Automation
-        Note over CB: Closed (Timed out)
     end
 ```
 
 | Status | Meaning for the customer | Entry condition | Set by |
 | --- | --- | --- | --- |
 | **Waiting for support** | We received it; it is with us. | The customer filed it, replied from Waiting for customer before triage finished, or reopened it with Still broken | Customer, automation |
-| **Accepted** | Confirmed defect, and we own it. | Triage classified it as a bug, set severity, and linked one NMM parent with **fixes** | Support (automation on link) |
+| **Accepted** | Confirmed defect, and we own it. | Triage classified it as a bug, set severity, and support created, assigned, and linked one NMM parent with **fixes** | Support creates the parent; automation transitions the customer ticket |
 | **In progress** | Engineering is working on it. | Any NMM sub-task is in progress | Automation from the NMM parent |
 | **Workaround provided** | You are unblocked. The permanent fix is still coming. | A workaround was sent and the customer confirmed it works | Support, by hand |
 | **Waiting for customer** | We need something from you. | A specific question was asked: logs, reproduction steps, bundle version, access | Support, by hand |
@@ -323,7 +333,7 @@ Resolved alone tells the customer nothing. The resolution is required.
 
 ### Verification
 
-**We resolve. The customer verifies.** Customer confirmation is not the gate for Resolved:
+**Release resolves availability; Implementation delivers; the customer verifies.** Customer confirmation is not the gate for Resolved:
 
 - Many customers never reply. If closing waited for them, tickets would stay open for months and the open count would mean nothing.
 - Released is not installed. A customer may take weeks to install `NMM 1.4.1`. Our part ends when the fix is available on their line.
@@ -390,7 +400,7 @@ Engineering progress flows one way: NMM → customer, on the link type **fixes**
 
 | NMM parent moves to | Customer ticket becomes | Also |
 | --- | --- | --- |
-| Created and linked | **Accepted** | Comment with the NMM key |
+| Created, assigned, and linked | **Accepted** | Comment with the NMM key |
 | In progress | **In progress** | — |
 | Done, Fix Version not yet released | **Pending release** | Copy Fix Version onto the customer ticket |
 | Fix Version released in Jira | **Resolved (Fixed)** | Comment: bundle id, and which component tags changed |
@@ -403,9 +413,9 @@ Two guard rules on the sync:
 
 “Code is on `main`” is not Resolved. The customer is on a bundle. The ticket is resolved when **their line** has a released bundle that contains the fix, or when you have told them the line is unsupported and named the upgrade.
 
-Releasing a Jira version is the switch. When `NMM 1.4.1` is marked Released, every customer ticket (and every NMM story) with that Fix Version can transition together. That is the status that is missing today: the customer ticket never hears that the bundle shipped.
+Releasing a Jira version is the switch. When `NMM 1.4.1` is marked Released, every customer ticket (and every NMM story) with that Fix Version can transition together. That is the status that is missing today: the customer ticket never hears that the bundle shipped. Implementation then delivers the released bundle to the customer and coordinates installation; that operational handoff does not delay Resolved.
 
-Until automation is in place, the person who sets the NMM parent to Done sets the customer ticket to Pending release and copies the Fix Version. The person who publishes the bundle marks the Jira version Released and resolves the linked customer tickets. Do not leave that as an optional comment.
+Until automation is in place, the person who sets the NMM parent to Done sets the customer ticket to Pending release and copies the Fix Version. The person who publishes the bundle marks the Jira version Released and resolves the linked customer tickets. Implementation then delivers the bundle and coordinates the customer installation. Do not leave either handoff as an optional comment.
 
 ### Triage outcomes that still must write back
 
@@ -422,18 +432,18 @@ Until automation is in place, the person who sets the NMM parent to Done sets th
 **S1 outage, workaround first**
 
 1. The customer reports that login fails for every user on `NMM 1.4.0`. **Waiting for support**, S1. First response and restore clocks start.
-2. After 20 minutes, support confirms and links `NMM-210`. **Accepted**, then **In progress**.
+2. After 20 minutes, support confirms, creates `NMM-210`, assigns it to the PO, and links it. **Accepted**, then **In progress**.
 3. After 1 hour, a config flag disables the failing SSO path and the customer confirms login works. **Workaround provided.** The restore target is met. Severity goes to S2.
 4. The fix lands in core2 and the BFF, is cherry-picked, and `NMM-210` is Done with Fix Version `NMM 1.4.1`. **Pending release.**
 5. `NMM 1.4.1` is released. **Resolved (Fixed).** The comment names the bundle, asks the customer to confirm after installing (S1 → active verification), and says the flag can be turned back on.
-6. Four days later the customer installs, turns the flag back on, and clicks Confirm. **Closed (Confirmed).**
+6. Implementation delivers `NMM 1.4.1` and coordinates the installation. Four days later the customer turns the flag back on and clicks Confirm. **Closed (Confirmed).**
 
 **S3 bug, missing information**
 
 1. The customer reports a wrong total on a report. **Waiting for support**, S3.
 2. Triage needs the bundle version and an example ID. **Waiting for customer.** Clocks pause.
 3. The customer replies two days later. Automation returns the ticket to **Waiting for support**. Clocks resume.
-4. Reproduced and linked to `NMM-230`. **Accepted**, then **In progress**.
+4. Reproduced; support creates and links `NMM-230`, assigned to the PO. **Accepted**, then **In progress**.
 5. The engineer needs production logs. **Waiting for customer** again. The NMM sub-task is flagged.
 6. Reminders on day 3 and day 7, no reply. Day 14: **Resolved (No response).** The verification window opens.
 7. Ten days later, the customer clicks Still broken and attaches the logs. **Waiting for support**, a new clock cycle, and triage continues from where it stopped.
@@ -515,6 +525,7 @@ If the fix is release-only in the mechanical sense (version bump, changelog), it
 3. Compose the bundle release notes into the Jira version description, from stories and parent bugs in that Fix Version.
 4. Mark Jira version `NMM 1.4.0` Released.
 5. Stories and tasks in that version move to Done. Customer tickets in that version move to Resolved, with a comment that names the bundle and links the release notes. Their verification window opens.
+6. Implementation delivers the released bundle to the customer and coordinates installation. Delivery is operational follow-through; it does not change the customer ticket back from Resolved.
 
 ### What each repo is doing during one bundle
 
@@ -730,16 +741,16 @@ Cores and the frontend still get a GitHub Release for the team (what the tag con
 
 ## Who moves what
 
-| Event | Repo | NMM Jira | Customer Jira | Manifest |
-| --- | --- | --- | --- | --- |
-| Story started | PRs to `main` | Story + tasks In progress | — | — |
-| Bundle cut | `release/X.Y` in repos that change | Fix Version already set | — | Draft |
-| Freeze bug | `main`, then cherry-pick | Bug tasks | — | Draft updates tags |
-| Customer bug accepted | — | Parent linked **fixes** | Accepted | — |
-| Customer fix merged on their line | Tags on the repos that changed | Parent Done | Pending release + Fix Version | `NMM x.y.z` published |
-| Version released | API GitHub Release if that tag is new | Version description holds the bundle notes; stories in that version Done | Resolved, notes visible on the same version | Already published |
-| Customer confirms, or 14 days pass | — | — | Closed | — |
-| Customer: Still broken | — | Parent reopened, or new linked bug | Waiting for support | — |
+| Event | Repo | NMM Jira | Customer Jira | Manifest | Implementation |
+| --- | --- | --- | --- | --- | --- |
+| Story started | PRs to `main` | Story + tasks In progress | — | — | — |
+| Bundle cut | `release/X.Y` in repos that change | Fix Version already set | — | Draft | — |
+| Freeze bug | `main`, then cherry-pick | Bug tasks | — | Draft updates tags | — |
+| Customer bug accepted | — | Support creates the parent, assigns it to the PO, and links **fixes** | Accepted | — | — |
+| Customer fix merged on their line | Tags on the repos that changed | Parent Done | Pending release + Fix Version | `NMM x.y.z` published | — |
+| Version released | API GitHub Release if that tag is new | Version description holds the bundle notes; stories in that version Done | Resolved, notes visible on the same version | Already published | Deliver the bundle and coordinate installation |
+| Customer confirms, or 14 days pass | — | — | Closed | — | Support verification follow-up when needed |
+| Customer: Still broken | — | Parent reopened, or new linked bug | Waiting for support | — | Escalate failed installation or verification details to Support |
 
 ---
 
@@ -771,5 +782,6 @@ Cores and the frontend still get a GitHub Release for the team (what the tag con
 7. Support window written next to the bundle line (current minor, previous minor, then upgrade).
 8. Fields on stories and parent bugs: **Release note**, **API impact**, **API migration**.
 9. Bundle notes written into the Jira version description before the version is marked Released. API changelog written on the API repo’s GitHub Release for each new tag.
+10. An Implementation delivery path for each supported customer: owner, bundle handoff, installation coordination, and escalation back to Support when verification fails.
 
 Component git policy stays Option A in each repo. The bundle is the product. The customer ticket tracks the bundle, not the pull request.
