@@ -2,7 +2,7 @@
 
 How the NMM product moves from a Jira ticket to a shipped bundle, and how a customer bug gets a status the customer can see.
 
-**Related:** [RELEASE_VERSIONING.md](./RELEASE_VERSIONING.md) (Option A per repo) · this document adds the **bundle** and the **customer board**.
+**Related:** [RELEASE_VERSIONING.md](./RELEASE_VERSIONING.md) (Option A per repo) · [JIRA_BUNDLE_DELIVERY.md](./JIRA_BUNDLE_DELIVERY.md) (operational checklist, Confluence release notes) · this document adds the **bundle** and the **customer board**.
 
 ---
 
@@ -17,7 +17,7 @@ The model is sound. Keep the core rules below; the rest of this document structu
 | Keep | Option A per repo | Fix on `main`, cherry-pick onto the release branches the manifest pins. |
 | Keep | One NMM parent per customer bug | Sub-tasks per repo; customer status projects from the parent. |
 | Keep | Resolved on release, Closed on verify/timeout | SLAs stop when *we* can deliver, not when the customer installs. |
-| Keep | Dual release notes | Bundle notes for customers; API notes on the API repo only. |
+| Keep | Dual release notes | Bundle notes on Confluence from the **Release note** field; API notes on the API repo only. |
 | Strengthen | Quarterly cadence | Was a sketch; §4 turns it into phases with gates (VS Code–style train, quarterly). |
 | Call out | Frontend git model | Company README defaults frontend to trunk; **NMM overrides that** — all five repos use Option A because customers pin bundles. |
 | Call out | Patch vs feature trains | Mid-quarter `NMM 1.4.x` patches and next-quarter `NMM 1.5.0` build run in parallel on different lines. |
@@ -271,7 +271,7 @@ A repo with no change since the previous bundle does not get a branch, a bump, o
 
 1. Tag each repo that changed (`v2.3.0`, `v4.1.0`, …) and publish the GitHub Release.
 2. Write the manifest with those tags and the repeated unchanged tags. Publish it as `nmm-v1.4.0`.
-3. Compose the bundle release notes into the Jira version description (from stories and parent bugs in that Fix Version).
+3. Generate bundle release notes via Jira **Release notes** → Create in Confluence (Stories/Bugs + **Release note** field); review and publish. See [JIRA_BUNDLE_DELIVERY.md](./JIRA_BUNDLE_DELIVERY.md) §5.
 4. Mark Jira version `NMM 1.4.0` Released.
 5. Stories and tasks in that version move to Done. Customer tickets in that version move to Resolved; their verification window opens.
 6. Implementation delivers the released bundle and coordinates installation. Delivery does not move the ticket back from Resolved.
@@ -515,7 +515,7 @@ flowchart LR
 
     subgraph R[Release]
         R1[Tag changed repos, publish manifest]
-        R2[Write notes, mark Jira version Released]
+        R2[Confluence notes, mark Jira version Released]
     end
 
     subgraph I[Implementation]
@@ -781,11 +781,11 @@ Frontend speaks only to the BFF. Cores are not a second client API for the front
 
 ## 9. Release notes
 
-Two note streams. Different audiences; not copies of each other.
+Two note streams. Different audiences; not copies of each other. Operational click path: [JIRA_BUNDLE_DELIVERY.md](./JIRA_BUNDLE_DELIVERY.md) §5.
 
 | Note | Audience | Question | Where |
 | --- | --- | --- | --- |
-| **Bundle notes** | Customers, support, customer board | What changed in NMM since the previous bundle on this line? | Jira version description for `NMM x.y.z` |
+| **Bundle notes** | Customers, support, customer board | What changed in NMM since the previous bundle on this line? | Confluence page from Jira **Release notes** → Create in Confluence (linked under version Related work) |
 | **API notes** | Customers who call the API | What changed in the API contract since the previous API tag? | GitHub Release on the API repo (BFF, if that is what they call) |
 | **Other component notes** | This team | What landed in core1 `v1.8.1`? | GitHub Release on that repo. Not sent to the customer. |
 
@@ -803,17 +803,36 @@ Tasks and sub-tasks stay out of both queries.
 
 ### 9.2 Fields on stories and parent bugs
 
+Do **not** reuse Description or Acceptance Criteria for the changelog. Those stay for engineering and QA.
+
+| Field | Audience | Role |
+| --- | --- | --- |
+| **Description** | Devs | Context, design, links |
+| **Acceptance criteria** | QA / Done | Testable checks |
+| **Release note** | Customers / support | Changelog line for Confluence |
+
 Before Done:
 
 | Field | Required | Use |
 | --- | --- | --- |
-| **Release note** | Yes if customer-visible; empty = omit | One or two sentences in customer language |
+| **Release note** | Yes if customer-visible; empty = omit | One or two sentences in customer language. Paragraph field on Story and Bug (parent) only. |
 | **API impact** | Yes if any child task is on the API repo | `None`, `Additive`, `Deprecated`, or `Breaking` |
 | **API migration** | Yes when Deprecated or Breaking | What the caller must change, and by which API version the old behavior disappears |
 
-### 9.3 Bundle note template
+### 9.3 Publish path (Jira → Confluence)
 
-Publish the **Release note** field, not Jira’s default key+summary. Same text on both boards’ version descriptions.
+On Jira Cloud with Confluence on the same site:
+
+1. Releases → open Fix Version → **Release notes** → **Create in Confluence**.
+2. Work types: Story and Bug only.
+3. Fields: **Release note** (and Key if useful). Do not select Description or Acceptance Criteria.
+4. Review the **draft** page; reshape using the template below; publish. Related work links back to the version.
+
+Alternative without Confluence: **Create release notes in Jira** (copy Markdown/HTML). Mark the version Released only after notes are reviewed.
+
+### 9.4 Bundle note template
+
+Publish the **Release note** field, not key+summary alone. Use this shape when editing the Confluence draft (and optionally mirror a short summary on the Jira version description).
 
 ```
 ## NMM 1.4.1
@@ -849,13 +868,11 @@ Filter:
 fixVersion = "NMM 1.4.1" AND type in (Story, Bug) AND "Release note" is not EMPTY
 ```
 
-Mark the version Released only after that description is saved.
+### 9.5 API note (component)
 
-### 9.4 API note (component)
+On the API repo only, every tag gets a GitHub Release grouped as Breaking / Deprecated / Additive / Fixes. Cores and frontend get team-facing GitHub Releases only — not copied into Jira or the customer Confluence page.
 
-On the API repo only, every tag gets a GitHub Release grouped as Breaking / Deprecated / Additive / Fixes. Cores and frontend get team-facing GitHub Releases only — not copied into Jira.
-
-### 9.5 Who writes which line
+### 9.6 Who writes which line
 
 | Change | Bundle note | API note |
 | --- | --- | --- |
@@ -876,7 +893,7 @@ On the API repo only, every tag gets a GitHub Release grouped as Breaking / Depr
 | Freeze bug | `main`, then cherry-pick | Bug tasks | — | Draft updates tags | — |
 | Customer bug accepted | — | Support creates parent, assigns PO, links **fixes** | Accepted | — | — |
 | Customer fix merged on their line | Tags on repos that changed | Parent Done | Pending release + Fix Version | `NMM x.y.z` published | — |
-| Version released | API GitHub Release if that tag is new | Version description = bundle notes; stories Done | Resolved | Already published | Deliver + coordinate install |
+| Version released | API GitHub Release if that tag is new | Confluence bundle notes published; stories Done | Resolved | Already published | Deliver + coordinate install |
 | Customer confirms, or 14 days | — | — | Closed | — | Support verification follow-up when needed |
 | Still broken | — | Parent reopened, or new linked bug | Waiting for support | — | Escalate failed install/verify to Support |
 
@@ -892,7 +909,7 @@ On the API repo only, every tag gets a GitHub Release grouped as Breaking / Depr
 - Do not merge a component’s release branch back into `main`. Cherry-pick product fixes; leave version bumps on the release branch.
 - Do not put component SemVer into customer-visible status. Say `NMM 1.4.1`; put component tags in the resolution comment for engineers.
 - Do not leave Accepted / In progress / Pending release as a manual courtesy — automate from the NMM parent and from releasing the Jira version.
-- Do not publish Jira’s default release notes. Publish the Release note field.
+- Do not publish Description, Acceptance Criteria, or key+summary alone as the changelog. Publish the **Release note** field via Release notes → Confluence.
 - Do not build the note from a date range. Use `fixVersion = this version`.
 - Do not give cores or the frontend a customer-facing changelog. Only the API the customer calls gets component notes.
 - Do not create Jira versions per component.
@@ -908,8 +925,8 @@ On the API repo only, every tag gets a GitHub Release grouped as Breaking / Depr
 5. The six automation rules from [§7.11](#711-jira-setup-for-the-customer-workflow).
 6. A manifest published with every bundle, listing five tags (new or repeated).
 7. Support window written next to the bundle line (current minor, previous minor, then upgrade).
-8. Fields on stories and parent bugs: **Release note**, **API impact**, **API migration**.
-9. Bundle notes in the Jira version description before Released; API changelog on the API repo’s GitHub Release for each new tag.
+8. Fields on stories and parent bugs: **Release note**, **API impact**, **API migration** (Release note on Story/Bug only — not Description/AC).
+9. Bundle notes via Jira **Release notes** → Create in Confluence before Released; API changelog on the API repo’s GitHub Release for each new tag. Details: [JIRA_BUNDLE_DELIVERY.md](./JIRA_BUNDLE_DELIVERY.md) §5.
 10. An Implementation delivery path per supported customer: owner, handoff, install coordination, escalation to Support when verification fails.
 11. Named **Release owner** and published quarterly calendar (Plan / Cut / Stabilize / Ship dates).
 
