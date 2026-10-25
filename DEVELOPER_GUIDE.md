@@ -1,29 +1,35 @@
 # Developer guide: trunk + release branches
 
+## Who this is for
+
+Use this guide when the repository ships **numbered builds that consumers pin** — you already have `release/X.Y` branches, or you will cut them. The same branch layout, fix path, and tagging rules apply in every such repository. Version numbers differ per repository; the method does not.
+
+If the repository only ever deploys the tip of `main`, you do not need release branches or backports. Fix on `main` and stop. That case is outside this guide.
+
+**The version numbers in the examples (`1.4`, `1.5`, `1.6`) are stand-ins.** A repository can keep several older minors at once — `release/1.3`, `release/1.2`, and so on. Release branches **stay open**; leaving support means you stop patching that line, not that you delete the branch. Read every `1.4` / `1.5` as “the lines that currently qualify,” and substitute the real `X.Y` you are patching. How far back a fix goes is the support window in [section 3](#which-lines-still-receive-the-fix).
+
+## Start here
+
+| I need to… | Go to |
+| --- | --- |
+| Know which situation I’m in | [§7 Find your situation](#7-find-your-situation) |
+| Ship a feature or a one-line fix today | [§5 A normal day](#5-a-normal-day) |
+| See the whole map in one table | [§10 Cheat sheet](#10-cheat-sheet) |
+| Copy a fix onto a release branch | [§6 The backport recipe](#6-the-backport-recipe) |
+
+---
+
 ## 1. What this is
 
-The aim is that every component team uses this same model on GitHub. Frontend, BFF, and each core share one branch layout, one rule for where a fix is written, and one way to mark what shipped. Every repository uses this scheme. When you move from `bff` to `core1`, the pull request works the same way. Version numbers differ per repository. The method does not.
-
-### Advantages
-
-Customers install a numbered build and upgrade on their own schedule, so more than one build of a component is live. This is the GitHub process that lets a team finish one of those builds, start the next, and still patch the old one.
-
-- **The same daily work in every repository.** Feature branches, backports, and tags follow one recipe. A reviewer already knows which branch a pull request is allowed to target.
-- **This release and the next one move at the same time.** QA can freeze 1.4 on `release/1.4` while 1.5 work continues on `main`. Neither line waits for the other.
-- **A patch stays a patch.** Customers on 1.4 receive the fix. They do not receive 1.5 features along with it. The cherry-pick copies that one change.
-- **Later releases already contain the fix.** It is written on `main` first, so 1.5 and 1.6 ship with it. A customer who upgrades does not walk back into the bug.
-- **A ship stays identifiable.** `v1.4.2` names one commit. Later patches, and deleting the branch when support ends, leave that commit in place.
-- **Little to keep alive.** `main` is the only permanent branch. `release/X.Y` exists while that minor is supported, then it is removed. There is no second trunk to synchronize.
+Customers install a numbered build and upgrade on their own schedule, so more than one build of a component is live. This is the GitHub process that lets a team finish one of those builds, start the next, and still patch an older one: the same daily work in every repo that uses this model; this release and the next moving at the same time; a patch that stays a patch; later releases that already contain the fix because it landed on `main` first; and a tag that names one ship forever.
 
 ### Principles
 
-Three rules carry the model.
-
 1. **One trunk.** `main` always holds the newest unreleased work. Feature work lands here.
-2. **A release branch per supported version.** When a version is ready to freeze, cut `release/X.Y` from `main`. That branch is where `X.Y` is stabilized and later patched. `main` stays open.
+2. **A release branch per minor you ship.** When a version is ready to freeze, cut `release/X.Y` from `main`. That branch is where `X.Y` is stabilized and later patched. `main` stays open. The release branch stays open after support ends; you simply stop opening normal backports onto it.
 3. **Fix on the trunk, copy onto the release branch, tag the ship.** What customers install is a tag (`v1.4.0`, `v1.4.1`), not the moving tip of `main`.
 
-A fix is written once, on `main`, and then copied onto each release branch that still has the bug. The copy is a cherry-pick: a new commit with a new SHA. The release branch is never merged back into `main`, and release branches are never merged into each other. Version bumps and changelogs stay on the release branch they belong to.
+A fix is written once, on `main`, and then copied onto each release branch that still has the bug and still qualifies for that fix. The copy is a cherry-pick: a new commit with a new SHA. The release branch is never merged back into `main`, and release branches are never merged into each other. Version bumps and changelogs stay on the release branch they belong to.
 
 ```mermaid
 flowchart LR
@@ -31,18 +37,17 @@ flowchart LR
         main["main<br/>next unreleased version"]
     end
 
-    subgraph supported["While we still patch that line"]
+    subgraph active["Still in the support window"]
         r15["release/1.5<br/>tags v1.5.0, v1.5.1"]
         r14["release/1.4<br/>tags v1.4.0, v1.4.1"]
     end
 
-    subgraph done["After support ends"]
-        tags["tags v1.3.0 … v1.3.4 stay<br/>branch release/1.3 is deleted"]
+    subgraph kept["Out of support — branch kept, no normal patches"]
+        r13["release/1.3<br/>tags v1.3.0 … v1.3.4 stay"]
     end
 
     main -->|"cherry-pick the fix"| r15
     main -->|"cherry-pick the fix, when that line still needs it"| r14
-    r14 -.-> tags
 ```
 
 The same rules, as history. One fix becomes two commits, and `main` keeps moving.
@@ -64,8 +69,6 @@ gitGraph
 
 In that diagram, `release_1_4` is the real branch `release/1.4`. `fix_on_main` and `same_fix_new_sha` are the same change and different commits. After the copy, both lines contain the fix, and `main` has moved on.
 
-The rest of this guide is when to touch which branch, and the exact GitHub steps.
-
 ---
 
 ## 2. The words on the pull request
@@ -73,7 +76,7 @@ The rest of this guide is when to touch which branch, and the exact GitHub steps
 | Word | What it means here |
 | --- | --- |
 | `main` | The next version. Feature work lands here. Product fixes land here first. |
-| `release/1.4` | The maintenance line for every `1.4.x` tag. It exists only while 1.4 is still supported. |
+| `release/1.4` | The maintenance line for every `1.4.x` tag. The branch stays after 1.4 leaves support; only the patch window closes. |
 | Tag `v1.4.2` | The exact commit we shipped as 1.4.2. Immutable. A GitHub Release is created from it. |
 | Feature branch | A short-lived branch from `main`, named `feature/<thing>` or `fix/<thing>`. |
 | Backport | A cherry-pick of a `main` commit onto a release branch, opened as its own pull request. Branch name: `backport/<thing>-1.4`. |
@@ -82,6 +85,8 @@ The rest of this guide is when to touch which branch, and the exact GitHub steps
 | Product fix | A change in behavior a customer can observe. It belongs on `main` and on every supported line that still has the defect. |
 
 `main` and every `release/*` branch are protected. A push straight to them is rejected. Every change is a pull request, including a one-line backport and a version bump.
+
+**Merge policy.** Squash-merge into `main` and into every `release/*`. Cherry-pick that one merge commit. Do not use a merge commit or rebase-merge on those branches unless the repository has documented a multi-SHA cherry-pick path. If you must cherry-pick several commits, apply them oldest to newest — never the GitHub merge commit.
 
 There is no `develop` branch and no `hotfix/*` branch type. A hotfix is a normal fix pull request, plus a backport onto the release branch that needs it.
 
@@ -94,16 +99,24 @@ There is no `develop` branch and no `hotfix/*` branch type. A hotfix is a normal
 3. Cherry-pick **that** `main` **commit** onto each supported release branch that still has the defect. Newest release branch first. Each backport is its own pull request.
 4. Leave version bumps and changelogs on the release branch that is about to be tagged.
 5. Put the tag on the release-branch commit you are shipping. Leave the tag on that commit.
-6. Delete `release/X.Y` when that line leaves support. Keep every tag.
+6. Keep `release/X.Y` after that line leaves support. Stop opening normal backports onto it; do not delete the branch.
 7. Treat a pull request whose file list is the whole tree as the wrong branch. A backport changes the same few lines as the original fix.
 
 ### Which lines still receive the fix
+
+Before you open backports:
+
+1. List the release branches that exist: `git fetch origin && git branch -r | grep 'origin/release/'` (or GitHub → **Branches** → `release/`). Branches stay; the list can include lines that are already out of support.
+2. Apply this table only to lines that still **qualify** for this defect. Existence of `release/1.2` does not mean 1.2 gets every fix.
+3. If severity (normal vs security/critical) or “does this older line still qualify?” is unclear, ask the **release owner** before opening a backport. Do not open an older-line patch “while you are here.”
+
+The examples that only name 1.4 and 1.5 are the common case of “current + previous,” not a hard limit on how many `release/*` branches a repo may keep.
 
 | Line | Normal bug | Security, or a critical defect that cannot wait for an upgrade |
 | --- | --- | --- |
 | The minor customers are expected to run, and a minor that is frozen but not tagged yet | Yes | Yes |
 | The one minor before that | No. Ship the fix on the newer line. The customer upgrades. | Yes |
-| Anything older | No | No, unless a release owner explicitly reopens that line |
+| Anything older (`1.3`, `1.2`, …) | No | No, unless a release owner explicitly reopens that line |
 
 On an NMM repository the “line” in that table is the **bundle** minor (`NMM 1.5` vs `NMM 1.4`). The manifest for that bundle names the component branch. Critical means an S1, or an S2 that cannot wait for an upgrade. Support sets severity. See [DEVELOPMENT_LIFECYCLE.md](./DEVELOPMENT_LIFECYCLE.md).
 
@@ -125,10 +138,11 @@ If you publish `v1.4.3` with the fix and forget `release/1.5`, a customer who th
 | --- | --- |
 | Feature pull request into `main` | The developer who owns the work |
 | Fix pull request into `main`, then the backport pull requests | The developer who owns the fix |
+| Decide which lines still qualify when severity or window is unclear | Release owner |
 | Create `release/X.Y` | Release owner, or a maintainer they ask |
 | Version bump and changelog on the release branch | Release owner |
 | Annotated tag and GitHub Release | Release owner |
-| Delete a release branch at the end of support | Release owner |
+| Mark a line out of support (stop normal patches; leave the branch) | Release owner |
 
 If you own the fix, you own the backport pull requests. You do not tag, and you do not bump the version inside the fix.
 
@@ -181,7 +195,7 @@ sequenceDiagram
    - In the body, say what a reviewer should try.
    - Create the pull request.
 6. Let CI finish. Answer review on this branch. If `main` has moved and GitHub offers **Update branch**, use it.
-7. The reviewer squash-merges (or uses the repo’s merge button). Delete `feature/csv-export` when GitHub offers.
+7. The reviewer squash-merges. Delete `feature/csv-export` when GitHub offers.
 
 **You are done.** There is no tag, no backport, and no release branch. `main` now contains CSV export. It will ship in 1.5, whenever that line is cut.
 
@@ -217,12 +231,13 @@ sequenceDiagram
 
     The change on `main` is the real fix, aimed at the code `main` has today:
 2. Push and open the pull request. **base:** `main`. Title: `Fix crash when tax code is null`.
-3. On that pull request, add the label `backport-to-release/1.4`. The label records where the fix must be copied. You still open the backport yourself.
+3. On that pull request, add the label `backport-to-release/1.4`. The label records where the fix must be copied. It is a reminder, not a queue — you still open the backport yourself.
 4. After it merges, copy the SHA of the commit that landed **on** `main`.
    - Squash merge: open the merged pull request and use the squash commit SHA. Call it `a1b2c3d` in this guide.
    - From a terminal: `gh pr view 431 --json mergeCommit --jq .mergeCommit.oid`
    - That SHA is the one you cherry-pick. The commits that used to be on `fix/null-tax` are not on `main` after a squash.
-5. Follow [the backport recipe](#6-the-backport-recipe) onto `release/1.4`.
+5. **Same sitting as the main merge:** open every backport pull request (a draft is fine) before you walk away. A merged `main` fix with a `backport-to-release/X.Y` label and no open backport for that line is unfinished work.
+6. Follow [the backport recipe](#6-the-backport-recipe) onto `release/1.4`.
    ```bash
     git fetch origin
     git switch -c backport/null-tax-1.4 origin/release/1.4
@@ -231,13 +246,13 @@ sequenceDiagram
    ```
 
     `-x` adds `cherry picked from commit a1b2c3d` to the message, so the next person can find the original.
-6. Open the backport pull request with **base:** `release/1.4` and **compare:** `backport/null-tax-1.4`. Title: `[1.4] Fix crash when tax code is null`. Body:
+7. Open the backport pull request with **base:** `release/1.4` and **compare:** `backport/null-tax-1.4`. Title: `[1.4] Fix crash when tax code is null`. Body:
    ```text
     Backport of #431.
     Cherry-pick of a1b2c3d.
    ```
-7. **Files changed** shows the tax-code fix and nothing else. CI runs. A reviewer merges it.
-8. Stop. Tell the release owner #432 is merged. They bump 1.4.0 → 1.4.1, tag `v1.4.1`, and publish the GitHub Release. Those steps are [section 8.7](#87-version-bump-and-changelog) and [section 8.8](#88-tag-the-build-and-publish-the-github-release).
+8. **Files changed** shows the tax-code fix and nothing else. CI runs. A reviewer merges it.
+9. Stop. Tell the release owner #432 is merged. They bump 1.4.0 → 1.4.1, tag `v1.4.1`, and publish the GitHub Release. Those steps are [section 8.7](#87-version-bump-and-changelog) and [section 8.8](#88-tag-the-build-and-publish-the-github-release).
 
 `main` already has the fix, so 1.5 will contain it on the day `release/1.5` is cut. You do not merge `release/1.4` into `main` to “bring the fix back.”
 
@@ -338,7 +353,7 @@ flowchart TD
 | It is time to write `1.4.3` into the version file | [8.7](#87-version-bump-and-changelog) |
 | It is time to publish | [8.8](#88-tag-the-build-and-publish-the-github-release) |
 | 1.3 will never be patched again | [8.9](#89-the-line-is-out-of-support) |
-| You must patch 1.3 anyway, and the branch is gone | [8.10](#810-you-must-patch-a-line-whose-branch-was-deleted) |
+| You must patch a line that is out of support | [8.10](#810-you-must-patch-a-line-that-is-out-of-support) |
 | The ticket says NMM 1.4, and you are inside `bff` or `core1` | [8.11](#811-nmm-the-bundle-number-is-not-the-branch-name) |
 
 Moments used below:
@@ -347,7 +362,7 @@ Moments used below:
 | --- | --- | --- | --- | --- |
 | A. Building 1.5 | 1.5 work | does not exist | current line, `v1.4.0` shipped | security and critical only |
 | B. Freezing 1.5 | 1.6 work has started | just cut, not tagged | still the customer line | security and critical only |
-| C. 1.5 has shipped | 1.6 work | current line, `v1.5.0` shipped | previous line, security and critical only | branch deleted, tags kept |
+| C. 1.5 has shipped | 1.6 work | current line, `v1.5.0` shipped | previous line, security and critical only | out of support; branch kept, no normal patches |
 
 ---
 
@@ -426,7 +441,7 @@ What you do not do: branch from `release/1.5`, fix only there, and plan to “me
 
 ### 8.3 A bug after the next version has shipped
 
-**Moment C.** `v1.5.0` is the current release. `main` is 1.6. `release/1.4` is the previous minor: security and critical only. `release/1.3` is gone.
+**Moment C.** `v1.5.0` is the current release. `main` is 1.6. `release/1.4` is the previous minor: security and critical only. `release/1.3` is still on the remote but out of support: no normal patches unless a release owner reopens it.
 
 The bug: a download whose file name contains a slash is saved with the wrong name. It is embarrassing and it has a workaround. It is not a security issue and it is not critical.
 
@@ -486,7 +501,7 @@ If the 1.5 cherry-pick conflicts and you re-implement it, the 1.4 cherry-pick st
     git switch -c fix/legacy-path-1.4 origin/release/1.4
    ```
 4. Pull request, **base:** `release/1.4`. Title: `[1.4] Fix crash on an empty legacy upload path`. Body: `Does not apply to main. formatLegacyPath was removed in 1.5.`
-5. If an older line such as 1.3 still had the function, you would still leave it alone unless a release owner reopened 1.3. The function existing is not enough. The support window has to qualify the line.
+5. If an older line such as 1.3 still has the function, leave it alone unless a release owner reopens 1.3. The branch existing is not enough. The support window has to qualify the line.
 
 ### 8.5 The cherry-pick conflicts
 
@@ -676,37 +691,28 @@ Tagging the right-hand tip of `main` as `v1.4.3` would publish 1.6 work under a 
 
 **Moment C, a bit later.** `v1.6.0` has shipped. The window is current minor plus the previous minor for security and critical fixes. 1.5 is the previous minor. 1.4 will not be patched again.
 
-1. Confirm no open pull request targets `release/1.4`.
-2. Delete the branch. Tags stay.
-   ```bash
-    git push origin --delete release/1.4
-   ```
+Do **not** delete `release/1.4`. The branch stays on the remote so history, tags, and an exceptional reopen stay simple. Out of support means:
 
-    On GitHub the same action is **Branches →** `release/1.4` **→ Delete**. Deleting the branch does not delete `v1.4.0`, `v1.4.1`, or `v1.4.3`, and it does not delete the GitHub Releases.
-3. Prove the ship is still there:
+1. Stop opening normal or security backports onto `release/1.4` unless a release owner explicitly reopens the line ([8.10](#810-you-must-patch-a-line-that-is-out-of-support)).
+2. Close or retarget any open pull request that still aims at `release/1.4` for routine work.
+3. Confirm the ships are still reachable from the tags:
    ```bash
     git fetch origin --tags
     git switch --detach v1.4.3
    ```
 
-    You are on the commit we shipped. There is no branch. `git switch main` when you are finished. `main` is never deleted.
+    You are on the commit we shipped. `git switch main` when you are finished.
 
-A ticket against 1.4 now resolves as an upgrade to the oldest supported line that contains the fix.
+A ticket against 1.4 now resolves as an upgrade to the oldest supported line that contains the fix. The branch remaining is not an invitation to patch it.
 
-### 8.10 You must patch a line whose branch was deleted
+### 8.10 You must patch a line that is out of support
 
-A release owner has agreed to an exception: 1.2 has a critical security issue, and one more tag is required. The last tag is `v1.2.3`. The branch `release/1.2` was deleted months ago.
+A release owner has agreed to an exception: 1.2 has a critical security issue, and one more tag is required. `release/1.2` is still on the remote (branches are kept). The last tag is `v1.2.3`.
 
-1. If `main` still has the vulnerable code, land the fix on `main` first and backport it to every **supported** line as well, newest first. The exception does not skip 1.6.
-2. Recreate the old line from the tag, not from `main`.
-   ```bash
-    git fetch origin --tags
-    git switch -c release/1.2 v1.2.3
-    git push -u origin release/1.2
-   ```
-3. Cherry-pick the `main` SHA onto a backport branch from `release/1.2`, or re-implement the intent if 1.2’s code has diverged ([8.5](#85-the-cherry-pick-conflicts)).
-4. Version bump to `1.2.4` on `release/1.2`, tag `v1.2.4`, push the tag, publish the GitHub Release. Do not mark it as Latest ([example 2 in 8.8](#88-tag-the-build-and-publish-the-github-release)).
-5. If this was a one-off, delete `release/1.2` again after the tag exists. If the exception reopens 1.2 for a defined period, keep the branch until that period ends, then delete it. The tags remain either way.
+1. If `main` still has the vulnerable code, land the fix on `main` first and backport it to every **supported** line as well, newest first. The exception does not skip the current train.
+2. Cherry-pick the `main` SHA onto a backport branch from `origin/release/1.2`, or re-implement the intent if 1.2’s code has diverged ([8.5](#85-the-cherry-pick-conflicts)).
+3. Version bump to `1.2.4` on `release/1.2`, tag `v1.2.4`, push the tag, publish the GitHub Release. Do not mark it as Latest ([example 2 in 8.8](#88-tag-the-build-and-publish-the-github-release)).
+4. Leave `release/1.2` in place. If the exception was a defined reopen period, resume “no normal patches” when that period ends. Do not delete the branch.
 
 ### 8.11 NMM: the bundle number is not the branch name
 
@@ -807,10 +813,11 @@ The Jira task for a repo is done when the change is on `main` and on the release
 - The diff is the feature or the fix that was asked for.
 - The version file and changelog are unchanged, unless the release owner is deliberately setting the next dev version on `main`.
 - A fix that customers on a supported line can still hit has a `backport-to-release/X.Y` label for each of those lines.
+- If there is a `backport-to-release/X.Y` label, confirm a linked backport pull request exists (or is listed in the body) before approving. The label alone is not enough.
 
 **A backport**
 
-- The base is `release/X.Y`, and the title starts with `[X.Y]`.
+- The base is `release/X.Y`, and the title starts with `[X.Y]`. That line still qualifies for this fix (supported window, or an explicit reopen).
 - There is one commit, or a re-implementation whose message names the original pull request and SHA.
 - **Files changed** matches the original fix. A diff of the whole repository is a branch cut from `main`. Close it.
 - The version file is untouched. A version bump is the release owner’s separate pull request.
@@ -837,12 +844,16 @@ The Jira task for a repo is done when the change is on `main` and on the release
 | Security or critical bug | `main` | Current release branch, then the previous minor’s release branch | A patch tag on each of those lines |
 | Broken code already deleted on `main` | The release branch that still has it | Any other qualifying line that still has it | Patch tag on those lines only |
 | Fix already merged on a release branch | Forward-port to `main` | Backport the new `main` SHA to any newer release branch that missed it | Whoever still needs a ship |
-| End of support | — | Delete `release/X.Y` | Keep every `vX.Y.Z` |
-| Exceptional patch of a deleted line | Fix `main` if the bug exists there | Recreate `release/X.Y` from the last tag, then the backport recipe | `vX.Y.(Z+1)`, not marked Latest |
+| End of support | — | Leave `release/X.Y` in place; stop normal backports | Keep every `vX.Y.Z` |
+| Exceptional patch of an out-of-support line | Fix `main` if the bug exists there | Backport onto the existing `release/X.Y` (release owner reopen) | `vX.Y.(Z+1)`, not marked Latest |
 
 Commands you will actually run:
 
 ```bash
+# which release lines exist (then apply the support window — existence ≠ patch)
+git fetch origin
+git branch -r | grep 'origin/release/'
+
 # feature or fix on the next version
 git fetch origin
 git switch -c fix/null-tax origin/main
