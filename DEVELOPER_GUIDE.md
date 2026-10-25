@@ -18,16 +18,18 @@ If a repository only ever deploys the tip of `main` and never has to patch an ol
 
 **The version numbers in the examples (`1.4`, `1.5`, `1.6`) are stand-ins.** Substitute the real `X.Y` of the repository you have open. A repo can keep several older minors at once (`release/1.3`, `release/1.2`, …). Those branches stay; leaving support means you stop opening normal backports onto that line, not that you delete the branch. How far back a fix goes is the support window in [section 3](#which-lines-still-receive-the-fix).
 
-## Start here
+## Table of contents
 
-| I need to… | Go to |
-| --- | --- |
-| Know how version numbers, branches, and tags fit together | [§2 How each component is versioned](#2-how-each-component-is-versioned) |
-| Know which situation I’m in | [§7 Find your situation](#7-find-your-situation) |
-| Ship a feature or a one-line fix today | [§5 A normal day](#5-a-normal-day) |
-| Copy a fix onto a release branch | [§6 The backport recipe](#6-the-backport-recipe) |
-| Review a pull request | [§9 Reviewing a pull request](#9-reviewing-a-pull-request) |
-| See the whole map in one table | [§10 Cheat sheet](#10-cheat-sheet) |
+1. [What this is](#1-what-this-is) — Why we use trunk + release branches and the core principles
+2. [How each component is versioned](#2-how-each-component-is-versioned) — Semantic Versioning (`X.Y.Z`), branch naming, tags, and merge policy
+3. [Rules](#3-rules) — The 7 core rules and the support window for older releases
+4. [Who does what](#4-who-does-what) — Developer vs. release owner responsibilities
+5. [A normal day](#5-a-normal-day) — Step-by-step for a normal feature day and a normal bug-fix day
+6. [The backport recipe](#6-the-backport-recipe) — How to cherry-pick a fix from `main` onto a `release/X.Y` branch
+7. [Find your situation](#7-find-your-situation) — Decision flowchart and lookup table for any scenario
+8. [Scenarios](#8-scenarios) — Detailed walkthroughs (cutting a release, QA freeze bugs, conflicts, forward-ports, tagging, multi-component bundles)
+9. [Reviewing a pull request](#9-reviewing-a-pull-request) — Reviewer checklist for `main`, backport, and forward-port PRs
+10. [Cheat sheet](#10-cheat-sheet) — Summary table and copy-paste Git commands
 
 ---
 
