@@ -2,7 +2,9 @@
 
 Company guidance for versioning GitHub repositories without full [git-flow](https://nvie.com/posts/a-successful-git-branching-model/).
 
-The full write-up is **[RELEASE_VERSIONING.md](./RELEASE_VERSIONING.md)**. This README is the short version: what to do, per repo type.
+**Opening a pull request?** Follow [DEVELOPER_GUIDE.md](./DEVELOPER_GUIDE.md). It is the step-by-step for trunk + release branches (Option A): a normal day, backports, tags, and the situations you will hit.
+
+[RELEASE_VERSIONING_OPTIONS.md](./RELEASE_VERSIONING_OPTIONS.md) is why we chose that model. This README is the one-page summary: what to do, per repo type.
 
 ## What we need
 
@@ -70,7 +72,8 @@ If you only run latest, skip this: fix on `main`, tag `v1.5.1`, deploy.
 
 ## Further reading
 
-- [RELEASE_VERSIONING.md](./RELEASE_VERSIONING.md) — options compared, why cherry-pick over merge, tag lifecycle, API vs DB vs Git versions, GitHub setup, [open source examples of Option A](./RELEASE_VERSIONING.md#open-source-examples-of-option-a).
+- [DEVELOPER_GUIDE.md](./DEVELOPER_GUIDE.md) — how to work Option A on GitHub, day to day and per situation.
+- [RELEASE_VERSIONING_OPTIONS.md](./RELEASE_VERSIONING_OPTIONS.md) — options compared, why cherry-pick over merge, tag lifecycle, API vs DB vs Git versions, GitHub setup, [open source examples of Option A](./RELEASE_VERSIONING_OPTIONS.md#open-source-examples-of-option-a).
 - [A successful Git branching model](https://nvie.com/posts/a-successful-git-branching-model/) — git-flow (the thing we are simplifying).
 - [Semantic Versioning](https://semver.org/)
 - [GitHub Flow](https://docs.github.com/en/get-started/using-github/github-flow)

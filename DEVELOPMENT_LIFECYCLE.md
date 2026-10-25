@@ -2,7 +2,7 @@
 
 How the NMM product moves from a Jira ticket to a shipped bundle, and how a customer bug gets a status the customer can see.
 
-**Related:** [RELEASE_VERSIONING.md](./RELEASE_VERSIONING.md) (Option A per repo) · [JIRA_BUNDLE_DELIVERY.md](./JIRA_BUNDLE_DELIVERY.md) (operational checklist, Confluence release notes) · this document adds the **bundle** and the **customer board**.
+**Related:** [DEVELOPER_GUIDE.md](./DEVELOPER_GUIDE.md) (Option A on GitHub, step by step) · [RELEASE_VERSIONING_OPTIONS.md](./RELEASE_VERSIONING_OPTIONS.md) (why that model) · [JIRA_BUNDLE_DELIVERY.md](./JIRA_BUNDLE_DELIVERY.md) (operational checklist, Confluence release notes) · this document adds the **bundle** and the **customer board**.
 
 ---
 
@@ -56,7 +56,7 @@ flowchart LR
 | **bff** | Backend for frontend. The only caller of the cores. |
 | **core1, core2, core3** | Core services consumed by the BFF (DB, storage, …). |
 
-Each repo uses **Option A** from [RELEASE_VERSIONING.md](./RELEASE_VERSIONING.md): `main`, `release/X.Y` while that component line is supported, tags `vX.Y.Z`, fix on `main`, cherry-pick onto the release branch.
+Each repo uses **Option A**: `main`, `release/X.Y` while that component line is supported, tags `vX.Y.Z`, fix on `main`, cherry-pick onto the release branch. How to do that on GitHub: [DEVELOPER_GUIDE.md](./DEVELOPER_GUIDE.md). Why this model: [RELEASE_VERSIONING_OPTIONS.md](./RELEASE_VERSIONING_OPTIONS.md).
 
 This document adds what Option A does not cover:
 
@@ -773,7 +773,7 @@ flowchart LR
     C[cores] --> B[bff] --> F[frontend]
 ```
 
-During a rolling deploy, two versions of a service can be alive briefly. Schema and API changes still follow expand → switch → contract from [RELEASE_VERSIONING.md](./RELEASE_VERSIONING.md). A patch bundle must not contain a contract step that the previous bundle’s binaries still need, unless you accept downtime.
+During a rolling deploy, two versions of a service can be alive briefly. Schema and API changes still follow expand → switch → contract from [RELEASE_VERSIONING_OPTIONS.md](./RELEASE_VERSIONING_OPTIONS.md). A patch bundle must not contain a contract step that the previous bundle’s binaries still need, unless you accept downtime.
 
 Frontend speaks only to the BFF. Cores are not a second client API for the frontend.
 

@@ -1,6 +1,8 @@
 # Release versioning options
 
-This document compares ways to version independent releases of a GitHub repository. The goal is a process that is simpler than [git-flow](https://nvie.com/posts/a-successful-git-branching-model/), while still covering two real needs:
+**Doing the work on GitHub?** Use [DEVELOPER_GUIDE.md](./DEVELOPER_GUIDE.md). This document compares the options and records why the team uses trunk + release branches.
+
+The goal is a process that is simpler than [git-flow](https://nvie.com/posts/a-successful-git-branching-model/), while still covering two real needs:
 
 1. **Parallel releases.** You can freeze and finish the current release while development for the next one has already started.
 2. **Fixes that travel forward.** A bug found in an older release can be patched there, and the same fix can be applied to every newer line that still needs it.
@@ -49,7 +51,7 @@ The rest of this document is about how much extra process you wrap around that c
 
 ## Option A — Trunk + release branches (recommended)
 
-This is the model Kubernetes, Node.js, Python, and most “we ship numbered versions” open-source projects use. It is git-flow with `develop` and `hotfix/*` removed.
+This is the model the team uses on GitHub. Step-by-step workflows are in [DEVELOPER_GUIDE.md](./DEVELOPER_GUIDE.md). Kubernetes, Node.js, Python, and most projects that ship numbered versions use the same shape. It is git-flow with `develop` and `hotfix/*` removed.
 
 ### Branches
 

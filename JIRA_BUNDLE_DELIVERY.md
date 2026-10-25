@@ -2,7 +2,7 @@
 
 How to plan, track, and ship an NMM bundle in Jira — from backlog through release notes — with as much automation as possible.
 
-**Related:** [DEVELOPMENT_LIFECYCLE.md](./DEVELOPMENT_LIFECYCLE.md) (model and phases) · [RELEASE_VERSIONING.md](./RELEASE_VERSIONING.md) (per-repo Git).
+**Related:** [DEVELOPMENT_LIFECYCLE.md](./DEVELOPMENT_LIFECYCLE.md) (model and phases) · [DEVELOPER_GUIDE.md](./DEVELOPER_GUIDE.md) (per-repo Git on GitHub) · [RELEASE_VERSIONING_OPTIONS.md](./RELEASE_VERSIONING_OPTIONS.md) (why that model).
 
 This document is the **operational checklist**. The lifecycle doc explains *why*; this one lists *what to set up* and *what to run each train*.
 
