@@ -1,12 +1,4 @@
-# Developer guide: trunk + release branches (Option A)
-
-How to work on GitHub in a repository that ships numbered versions. This is the model the team uses in every NMM repository: `frontend`, `bff`, `core1`, `core2`, and `core3`.
-
-**Related:** [RELEASE_VERSIONING_OPTIONS.md](./RELEASE_VERSIONING_OPTIONS.md) (why this model, and the ones we did not adopt) · [DEVELOPMENT_LIFECYCLE.md](./DEVELOPMENT_LIFECYCLE.md) (the bundle and the customer board) · [JIRA_BUNDLE_DELIVERY.md](./JIRA_BUNDLE_DELIVERY.md) (the release checklist)
-
-The examples in sections 1–8 use **one repository** whose own versions are `1.3`, `1.4`, `1.5`, and `1.6`. Those numbers are the component’s SemVer. They are not the NMM bundle number. If you are in `bff` and the customer is on NMM 1.4, the branch may be `release/4.1`, not `release/1.4`. [Section 8.11](#811-nmm-the-bundle-number-is-not-the-branch-name) maps a bundle onto the branch in the repo you have open.
-
----
+# Developer guide: trunk + release branches
 
 ## 1. What this is
 
@@ -72,20 +64,7 @@ gitGraph
 
 In that diagram, `release_1_4` is the real branch `release/1.4`. `fix_on_main` and `same_fix_new_sha` are the same change and different commits. After the copy, both lines contain the fix, and `main` has moved on.
 
-### How this differs from the other models
-
-Three other models show up often. This is the point at which each one stops being enough for several numbered builds.
-
-| | Trunk + release branches (this guide) | GitHub Flow | Git-flow | Trunk only, with feature flags |
-| --- | --- | --- | --- | --- |
-| Long-lived branches | `main`, plus `release/X.Y` while that line is supported | `main` only | `main` and `develop`, plus release and hotfix branches | `main` only |
-| Finish 1.4 while 1.5 is already in progress | `release/1.4` freezes, `main` continues | One line, so 1.5 waits or 1.4 ships unfinished | A `release` branch, then merged back into `develop` | One line. Unfinished work is hidden behind flags |
-| Patch customers still on 1.4 after 1.5 exists | Cherry-pick onto `release/1.4` and tag `v1.4.1` | Old versions are tags. A patch has to be improvised | A `hotfix` branch, merged into both `main` and `develop` | The old build is not a branch you can patch |
-| How the fix reaches the next version | It was written on `main` first | There is only the latest deploy | The hotfix is merged forward | It is already on the only line |
-
-GitHub Flow and a pure trunk fit a service that only ever runs its latest deploy. Git-flow can keep old versions alive, and it adds a permanent `develop` branch, a hotfix branch type, and a merge of the release line back into `develop`. We cut the release branch, cherry-pick the fix, and stop there.
-
-The longer comparison, and the open-source projects that work this way, is in [RELEASE_VERSIONING_OPTIONS.md](./RELEASE_VERSIONING_OPTIONS.md). The rest of this guide is when to touch which branch, and the exact GitHub steps.
+The rest of this guide is when to touch which branch, and the exact GitHub steps.
 
 ---
 
@@ -112,7 +91,7 @@ There is no `develop` branch and no `hotfix/*` branch type. A hotfix is a normal
 
 1. Start feature work from `main`, and open the pull request against `main`.
 2. When `main` still has a defect, land the fix on `main` first.
-3. Cherry-pick **that `main` commit** onto each supported release branch that still has the defect. Newest release branch first. Each backport is its own pull request.
+3. Cherry-pick **that** `main` **commit** onto each supported release branch that still has the defect. Newest release branch first. Each backport is its own pull request.
 4. Leave version bumps and changelogs on the release branch that is about to be tagged.
 5. Put the tag on the release-branch commit you are shipping. Leave the tag on that commit.
 6. Delete `release/X.Y` when that line leaves support. Keep every tag.
@@ -178,39 +157,30 @@ sequenceDiagram
 ```
 
 1. Update `main`.
-
    ```bash
-   git fetch origin
-   git switch main
-   git pull origin main
+    git fetch origin
+    git switch main
+    git pull origin main
    ```
-
 2. Branch from that tip.
-
    ```bash
-   git switch -c feature/csv-export
+    git switch -c feature/csv-export
    ```
-
 3. Make the change. Leave the version file and `CHANGELOG.md` alone. The release owner sets the version when `release/1.5` is cut.
-
 4. Commit and push.
-
    ```bash
-   git add -A
-   git commit -m "Add CSV export of invoices"
-   git push -u origin feature/csv-export
+    git add -A
+    git commit -m "Add CSV export of invoices"
+    git push -u origin feature/csv-export
    ```
-
 5. Open the pull request on GitHub.
    - If a banner says **Compare & pull request**, click it.
    - Otherwise **Pull requests → New pull request**.
-   - **base: `main`**. **compare: `feature/csv-export`**.
+   - **base:** `main`. **compare:** `feature/csv-export`.
    - Title: `Add CSV export of invoices`.
    - In the body, say what a reviewer should try.
    - Create the pull request.
-
 6. Let CI finish. Answer review on this branch. If `main` has moved and GitHub offers **Update branch**, use it.
-
 7. The reviewer squash-merges (or uses the repo’s merge button). Delete `feature/csv-export` when GitHub offers.
 
 **You are done.** There is no tag, no backport, and no release branch. `main` now contains CSV export. It will ship in 1.5, whenever that line is cut.
@@ -238,52 +208,35 @@ sequenceDiagram
 ```
 
 1. Branch from `main` and fix it there.
-
    ```bash
-   git fetch origin
-   git switch main
-   git pull origin main
-   git switch -c fix/null-tax
+    git fetch origin
+    git switch main
+    git pull origin main
+    git switch -c fix/null-tax
    ```
 
-   The change on `main` is the real fix, aimed at the code `main` has today:
-
-   ```javascript
-   function calculateTotal(invoice) {
-     const tax = invoice.tax ?? "VAT0";
-     return invoice.net * rates[tax];
-   }
-   ```
-
-2. Push and open the pull request. **base: `main`**. Title: `Fix crash when tax code is null`.
-
+    The change on `main` is the real fix, aimed at the code `main` has today:
+2. Push and open the pull request. **base:** `main`. Title: `Fix crash when tax code is null`.
 3. On that pull request, add the label `backport-to-release/1.4`. The label records where the fix must be copied. You still open the backport yourself.
-
-4. After it merges, copy the SHA of the commit that landed **on `main`**.
+4. After it merges, copy the SHA of the commit that landed **on** `main`.
    - Squash merge: open the merged pull request and use the squash commit SHA. Call it `a1b2c3d` in this guide.
    - From a terminal: `gh pr view 431 --json mergeCommit --jq .mergeCommit.oid`
    - That SHA is the one you cherry-pick. The commits that used to be on `fix/null-tax` are not on `main` after a squash.
-
 5. Follow [the backport recipe](#6-the-backport-recipe) onto `release/1.4`.
-
    ```bash
-   git fetch origin
-   git switch -c backport/null-tax-1.4 origin/release/1.4
-   git cherry-pick -x a1b2c3d
-   git push -u origin backport/null-tax-1.4
+    git fetch origin
+    git switch -c backport/null-tax-1.4 origin/release/1.4
+    git cherry-pick -x a1b2c3d
+    git push -u origin backport/null-tax-1.4
    ```
 
-   `-x` adds `cherry picked from commit a1b2c3d` to the message, so the next person can find the original.
-
-6. Open the backport pull request with **base: `release/1.4`** and **compare: `backport/null-tax-1.4`**. Title: `[1.4] Fix crash when tax code is null`. Body:
-
+    `-x` adds `cherry picked from commit a1b2c3d` to the message, so the next person can find the original.
+6. Open the backport pull request with **base:** `release/1.4` and **compare:** `backport/null-tax-1.4`. Title: `[1.4] Fix crash when tax code is null`. Body:
    ```text
-   Backport of #431.
-   Cherry-pick of a1b2c3d.
+    Backport of #431.
+    Cherry-pick of a1b2c3d.
    ```
-
 7. **Files changed** shows the tax-code fix and nothing else. CI runs. A reviewer merges it.
-
 8. Stop. Tell the release owner #432 is merged. They bump 1.4.0 → 1.4.1, tag `v1.4.1`, and publish the GitHub Release. Those steps are [section 8.7](#87-version-bump-and-changelog) and [section 8.8](#88-tag-the-build-and-publish-the-github-release).
 
 `main` already has the fix, so 1.5 will contain it on the day `release/1.5` is cut. You do not merge `release/1.4` into `main` to “bring the fix back.”
@@ -292,7 +245,7 @@ sequenceDiagram
 
 ## 6. The backport recipe
 
-Use this every time a commit on `main` must also exist on a release branch. Repeat it once per release branch. Always cherry-pick the **`main` SHA**, not the SHA of a previous backport. A previous backport may contain conflict resolutions that belong only on that newer line.
+Use this every time a commit on `main` must also exist on a release branch. Repeat it once per release branch. Always cherry-pick the `main` **SHA**, not the SHA of a previous backport. A previous backport may contain conflict resolutions that belong only on that newer line.
 
 ### 6.1 Local branch
 
@@ -316,7 +269,7 @@ git push -u origin backport/<short-name>-1.4
 
 ### 6.2 The pull request on GitHub
 
-GitHub’s banner after a push assumes **base: `main`**. Change it before you create the pull request.
+GitHub’s banner after a push assumes **base:** `main`. Change it before you create the pull request.
 
 | Field | Value |
 | --- | --- |
@@ -335,13 +288,13 @@ gh pr create --base release/1.4 --head backport/null-tax-1.4 \
 
 ### 6.3 Two backports that look openable and are not
 
-**Example 1 — the base dropdown was left on `main`.**
+**Example 1 — the base dropdown was left on** `main`**.**
 
 You cherry-picked correctly, then clicked the yellow banner. The pull request says `backport/null-tax-1.4` → `main`. Merging it would drop a 1.4 commit onto the 1.5 line, and it would not patch 1.4 at all.
 
-Close it without merging. Open a new pull request and set **base: `release/1.4`**. The branch itself can stay.
+Close it without merging. Open a new pull request and set **base:** `release/1.4`. The branch itself can stay.
 
-**Example 2 — the branch was cut from `main`, so the diff is the whole release.**
+**Example 2 — the branch was cut from** `main`**, so the diff is the whole release.**
 
 `git log origin/release/1.4..HEAD` lists dozens of commits. **Files changed** is most of the repository: 1.5 features, plus your fix. GitHub is offering to merge `main` into `release/1.4`.
 
@@ -409,21 +362,16 @@ Moments used below:
 **Example 1 — this repo will ship a new tag, with a release candidate.**
 
 1. Cut the branch from the current `main`. Do this once.
-
    ```bash
-   git fetch origin
-   git switch main
-   git pull origin main
-   git switch -c release/1.5
-   git push -u origin release/1.5
+    git fetch origin
+    git switch main
+    git pull origin main
+    git switch -c release/1.5
+    git push -u origin release/1.5
    ```
-
-2. On `release/1.5` only, open a pull request that sets the version to `1.5.0-rc.1` and writes the 1.5 changelog. **base: `release/1.5`**. That commit is release-only. It is not copied to `main`.
-
+2. On `release/1.5` only, open a pull request that sets the version to `1.5.0-rc.1` and writes the 1.5 changelog. **base:** `release/1.5`. That commit is release-only. It is not copied to `main`.
 3. Tell the team: 1.6 work goes to `main`. Anything that must be in 1.5 is a fix on `main` plus a backport onto `release/1.5`.
-
 4. QA runs on the release candidate. Bugs follow [section 8.2](#82-a-bug-shows-up-while-that-release-is-freezing).
-
 5. When QA signs off, bump `1.5.0-rc.1` → `1.5.0` on `release/1.5`, tag `v1.5.0`, and publish the GitHub Release ([8.8](#88-tag-the-build-and-publish-the-github-release)).
 
 ```mermaid
@@ -454,11 +402,11 @@ A short freeze with no release candidate is the same as example 1, minus the `rc
 
 The fix still goes to `main` first, then onto `release/1.5`. Going to `main` first means 1.6 cannot ship the bug later. The 1.4 line is a separate decision: patch it only if customers on 1.4 hit it and 1.4 is still the line that receives normal fixes. In moment B, 1.4 is still that line, so a crash customers can hit on 1.4 is also backported to `release/1.4`, after `release/1.5`.
 
-**Example 1 — `main` has barely touched this function. The cherry-pick is clean.**
+**Example 1 —** `main` **has barely touched this function. The cherry-pick is clean.**
 
 The crash is a missing null check in `calculateTotal`. 1.6 work has been in another package.
 
-1. Open `fix/null-tax` from `main`, pull request **base: `main`**, label `backport-to-release/1.5` and, because 1.4 still gets normal fixes, `backport-to-release/1.4`.
+1. Open `fix/null-tax` from `main`, pull request **base:** `main`, label `backport-to-release/1.5` and, because 1.4 still gets normal fixes, `backport-to-release/1.4`.
 2. After merge, take the squash SHA `a1b2c3d`.
 3. Backport recipe onto `release/1.5`. Pull request title `[1.5] Fix crash when tax code is null`. Merge it.
 4. Backport recipe again, from `a1b2c3d`, onto `release/1.4`. A second branch, `backport/null-tax-1.4`, and a second pull request. Merge it.
@@ -533,22 +481,11 @@ If the 1.5 cherry-pick conflicts and you re-implement it, the 1.4 cherry-pick st
    - `release/1.5`: function is gone. Stop for this line.
    - `release/1.4`: function is present. This is the previous minor, so you patch it only when the defect is security or critical. A crash in a legacy upload path that loses a file is critical: patch it.
 3. Branch from the release branch and write the fix there. There is no SHA on `main` to cherry-pick.
-
    ```bash
-   git fetch origin
-   git switch -c fix/legacy-path-1.4 origin/release/1.4
+    git fetch origin
+    git switch -c fix/legacy-path-1.4 origin/release/1.4
    ```
-
-   ```javascript
-   function formatLegacyPath(path) {
-     if (!path) {
-       return "";
-     }
-     return path.replace(/\\/g, "/");
-   }
-   ```
-
-4. Pull request, **base: `release/1.4`**. Title: `[1.4] Fix crash on an empty legacy upload path`. Body: `Does not apply to main. formatLegacyPath was removed in 1.5.`
+4. Pull request, **base:** `release/1.4`. Title: `[1.4] Fix crash on an empty legacy upload path`. Body: `Does not apply to main. formatLegacyPath was removed in 1.5.`
 5. If an older line such as 1.3 still had the function, you would still leave it alone unless a release owner reopened 1.3. The function existing is not enough. The support window has to qualify the line.
 
 ### 8.5 The cherry-pick conflicts
@@ -588,7 +525,7 @@ git cherry-pick --continue
 
 Push and open the pull request as in the recipe. The body still says `Backport of #431`.
 
-**Example 2 — the `main` fix does not fit this tree. Re-implement the intent.**
+**Example 2 — the** `main` **fix does not fit this tree. Re-implement the intent.**
 
 `a1b2c3d` on `main` looks like this, because 1.5 renamed the field and replaced the rate table:
 
@@ -647,11 +584,11 @@ git cherry-pick -x b4c5d6e
 git push -u origin forwardport/null-tax
 ```
 
-Pull request **base: `main`**. Title: `Fix crash when tax code is null`. Body: `Forward-port of #432 (b4c5d6e), which landed on release/1.4 first.`
+Pull request **base:** `main`. Title: `Fix crash when tax code is null`. Body: `Forward-port of #432 (b4c5d6e), which landed on release/1.4 first.`
 
 If 1.5 has already rewritten the function, abort and re-implement the intent on `main`, the same way [example 2 in 8.5](#85-the-cherry-pick-conflicts) re-implemented it on 1.4. The commit message names `#432`.
 
-Then look at newer release branches that were cut before this forward-port and still have the bug. Cherry-pick the **new `main` SHA** onto those, newest first. `release/1.4` already has the fix. Leave it.
+Then look at newer release branches that were cut before this forward-port and still have the bug. Cherry-pick the **new** `main` **SHA** onto those, newest first. `release/1.4` already has the fix. Leave it.
 
 You still do not merge `release/1.4` into `main`. That merge would bring the 1.4 version bump and changelog with the fix.
 
@@ -662,16 +599,12 @@ You still do not merge `release/1.4` into `main`. That merge would bring the 1.4
 `release/1.4` now contains the null-tax fix and the previous tag `v1.4.2`. The version file on that branch still says `1.4.2`. The tag you are about to create has to match the version file.
 
 1. Branch from the release branch.
-
    ```bash
-   git fetch origin
-   git switch -c release-prep/1.4.3 origin/release/1.4
+    git fetch origin
+    git switch -c release-prep/1.4.3 origin/release/1.4
    ```
-
 2. Set the version to `1.4.3` in the version file this repo uses (`package.json`, the `.csproj`, or whatever it already uses). Add a changelog entry that names the crash fix and links #432.
-
-3. Pull request, **base: `release/1.4`**. Title: `Release 1.4.3`. No label for a backport. This commit must not be cherry-picked to `main`. `main` is 1.6 and will get its own version when its own release branch is cut.
-
+3. Pull request, **base:** `release/1.4`. Title: `Release 1.4.3`. No label for a backport. This commit must not be cherry-picked to `main`. `main` is 1.6 and will get its own version when its own release branch is cut.
 4. Merge.
 
 What belongs on which branch:
@@ -698,38 +631,28 @@ After the cut in [8.1](#81-cut-the-next-release-while-main-moves-on), `main` may
 **Who:** release owner. The version-bump pull request from 8.7 is merged.
 
 1. Confirm the branch tip is the commit you mean to ship.
-
    ```bash
-   git fetch origin
-   git switch release/1.4
-   git pull origin release/1.4
-   git log --oneline -5
+    git fetch origin
+    git switch release/1.4
+    git pull origin release/1.4
+    git log --oneline -5
    ```
 
-   You want to see the version bump on top, and the fix underneath:
-
-   ```text
-   c7d8e9f Release 1.4.3
-   b4c5d6e Fix crash when tax code is null
-   9aa11b2 Release 1.4.2
-   ```
-
+    You want to see the version bump on top, and the fix underneath:
 2. Tag that tip. An annotated tag stores the message on the tag.
-
    ```bash
-   git tag -a v1.4.3 -m "Release 1.4.3"
-   git push origin v1.4.3
+    git tag -a v1.4.3 -m "Release 1.4.3"
+    git push origin v1.4.3
    ```
-
 3. On GitHub: **Releases → Draft a new release**.
    - **Choose a tag:** `v1.4.3`. Choose the existing tag. Do not type a new tag name against `main`.
    - Title: `1.4.3`.
    - Describe the fixes, or generate notes and then delete anything that is not on this line.
    - Publish.
 
-**Example 1 — `v1.4.3` is the newest version we have published.** 1.5 is not out. In the release form, set this release as the latest.
+**Example 1 —** `v1.4.3` **is the newest version we have published.** 1.5 is not out. In the release form, set this release as the latest.
 
-**Example 2 — `v1.5.0` is already published, and you are now shipping `v1.4.3` for the previous line.** GitHub’s “latest” badge is what people and tooling notice. A 1.4 patch must not replace 1.5 as Latest. In **Set as the latest release**, keep `v1.5.0` as the latest. Mark a release candidate (`v1.5.0-rc.1`) as a **pre-release**, so it never becomes Latest.
+**Example 2 —** `v1.5.0` **is already published, and you are now shipping** `v1.4.3` **for the previous line.** GitHub’s “latest” badge is what people and tooling notice. A 1.4 patch must not replace 1.5 as Latest. In **Set as the latest release**, keep `v1.5.0` as the latest. Mark a release candidate (`v1.5.0-rc.1`) as a **pre-release**, so it never becomes Latest.
 
 The tag does not move if you find another bug tomorrow. You merge another fix, bump to `1.4.4`, and create `v1.4.4`. You do not delete `v1.4.3` and point it at a new commit.
 
@@ -755,21 +678,18 @@ Tagging the right-hand tip of `main` as `v1.4.3` would publish 1.6 work under a 
 
 1. Confirm no open pull request targets `release/1.4`.
 2. Delete the branch. Tags stay.
-
    ```bash
-   git push origin --delete release/1.4
+    git push origin --delete release/1.4
    ```
 
-   On GitHub the same action is **Branches → `release/1.4` → Delete**. Deleting the branch does not delete `v1.4.0`, `v1.4.1`, or `v1.4.3`, and it does not delete the GitHub Releases.
-
+    On GitHub the same action is **Branches →** `release/1.4` **→ Delete**. Deleting the branch does not delete `v1.4.0`, `v1.4.1`, or `v1.4.3`, and it does not delete the GitHub Releases.
 3. Prove the ship is still there:
-
    ```bash
-   git fetch origin --tags
-   git switch --detach v1.4.3
+    git fetch origin --tags
+    git switch --detach v1.4.3
    ```
 
-   You are on the commit we shipped. There is no branch. `git switch main` when you are finished. `main` is never deleted.
+    You are on the commit we shipped. There is no branch. `git switch main` when you are finished. `main` is never deleted.
 
 A ticket against 1.4 now resolves as an upgrade to the oldest supported line that contains the fix.
 
@@ -779,13 +699,11 @@ A release owner has agreed to an exception: 1.2 has a critical security issue, a
 
 1. If `main` still has the vulnerable code, land the fix on `main` first and backport it to every **supported** line as well, newest first. The exception does not skip 1.6.
 2. Recreate the old line from the tag, not from `main`.
-
    ```bash
-   git fetch origin --tags
-   git switch -c release/1.2 v1.2.3
-   git push -u origin release/1.2
+    git fetch origin --tags
+    git switch -c release/1.2 v1.2.3
+    git push -u origin release/1.2
    ```
-
 3. Cherry-pick the `main` SHA onto a backport branch from `release/1.2`, or re-implement the intent if 1.2’s code has diverged ([8.5](#85-the-cherry-pick-conflicts)).
 4. Version bump to `1.2.4` on `release/1.2`, tag `v1.2.4`, push the tag, publish the GitHub Release. Do not mark it as Latest ([example 2 in 8.8](#88-tag-the-build-and-publish-the-github-release)).
 5. If this was a one-off, delete `release/1.2` again after the tag exists. If the exception reopens 1.2 for a defined period, keep the branch until that period ends, then delete it. The tags remain either way.
@@ -815,7 +733,7 @@ flowchart TB
 
 The support window from [section 3](#which-lines-still-receive-the-fix) applies to **NMM 1.5** and **NMM 1.4**, not to “bff 4.x versus bff 4.y” on its own. You translate the bundle into branches only after you know which bundles qualify.
 
-**Example 1 — one repository, two bundles. Critical bug in `bff`.**
+**Example 1 — one repository, two bundles. Critical bug in** `bff`**.**
 
 The tags in both examples are illustrative, so every branch name is visible. On a real ticket, read the published manifest and use the tags it lists.
 
@@ -851,7 +769,7 @@ NMM 1.5.0’s manifest will pin `bff: v4.2.0`, which now contains the same fix. 
 
 **Example 2 — two repositories, one bundle. A normal QA bug on the 1.5 train.**
 
-QA of NMM 1.5 finds that a slash in a file name is mishandled. The bug is in `bff` and in `core1`. It is a normal bug on the current train. NMM 1.4 does not get a patch. Both repositories still follow Option A inside their own history.
+QA of NMM 1.5 finds that a slash in a file name is mishandled. The bug is in `bff` and in `core1`. It is a normal bug on the current train. NMM 1.4 does not get a patch. Both repositories still follow this guide inside their own history.
 
 In **core1**:
 
@@ -883,7 +801,7 @@ The Jira task for a repo is done when the change is on `main` and on the release
 
 ## 9. Reviewing a pull request
 
-**A pull request into `main`**
+**A pull request into** `main`
 
 - The base is `main`.
 - The diff is the feature or the fix that was asked for.
@@ -947,6 +865,5 @@ git log --oneline origin/release/1.4..HEAD
 
 ## 11. Where to read more
 
-- [RELEASE_VERSIONING_OPTIONS.md](./RELEASE_VERSIONING_OPTIONS.md) — why cherry-pick rather than merging a release branch, how tags behave, and how other projects run this model.
 - [DEVELOPMENT_LIFECYCLE.md](./DEVELOPMENT_LIFECYCLE.md) — quarterly train, manifests, and what the customer sees.
 - [JIRA_BUNDLE_DELIVERY.md](./JIRA_BUNDLE_DELIVERY.md) — the checklist the release owner runs to publish a bundle.
