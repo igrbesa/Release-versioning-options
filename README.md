@@ -4,6 +4,8 @@ Company guidance for versioning GitHub repositories without full [git-flow](http
 
 **Opening a pull request?** Follow [DEVELOPER_GUIDE.md](./DEVELOPER_GUIDE.md). It is the step-by-step for trunk + release branches (Option A): a normal day, backports, tags, and the situations you will hit.
 
+**Docker on GHCR?** Cut / Release PR / RC tags are in [DEVELOPER_GUIDE.md](./DEVELOPER_GUIDE.md). CI promote (retag RC → final, no rebuild): [DOCKER_RC_PROMOTION.md](./DOCKER_RC_PROMOTION.md).
+
 [RELEASE_VERSIONING_OPTIONS.md](./RELEASE_VERSIONING_OPTIONS.md) is why we chose that model. This README is the one-page summary: what to do, per repo type.
 
 ## What we need

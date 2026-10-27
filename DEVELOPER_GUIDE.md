@@ -28,7 +28,7 @@ If a repository only ever deploys the tip of `main` and never has to patch an ol
 5. [A normal day](#5-a-normal-day) — Step-by-step for a normal feature day and a normal bug-fix day
 6. [The backport recipe](#6-the-backport-recipe) — How to cherry-pick a fix from `main` onto a `release/X.Y` branch
 7. [Find your situation](#7-find-your-situation) — Decision flowchart and lookup table for any scenario
-8. [Scenarios](#8-scenarios) — Detailed walkthroughs (cutting a release, QA freeze bugs, conflicts, forward-ports, tagging, legacy tags, multi-component bundles)
+8. [Scenarios](#8-scenarios) — Walkthroughs; start with [8.1 A–E: cut → Release PR → RC → QA → final](#81-cut-the-next-release-while-main-moves-on)
 9. [Reviewing a pull request](#9-reviewing-a-pull-request) — Reviewer checklist for `main`, backport, and forward-port PRs
 10. [Cheat sheet](#10-cheat-sheet) — Summary table and copy-paste Git commands
 
@@ -183,7 +183,7 @@ Every component uses [Semantic Versioning](https://semver.org/) (`X.Y.Z`) and ta
 | **MAJOR** (`X`) | `1.4.2` → `2.0.0` | Breaking change to the component’s public API, contract, CLI, or configuration | Develop on `main`. When ready to freeze, cut `release/2.0` from `main` and tag `v2.0.0`. |
 | **MINOR** (`Y`) | `1.4.2` → `1.5.0` | Backward-compatible new feature or enhancement | Develop on `main`. When ready to freeze, cut `release/1.5` from `main` and tag `v1.5.0`. |
 | **PATCH** (`Z`) | `1.4.0` → `1.4.1` | Backward-compatible bug fix or security fix | **No new release branch.** Cherry-pick the fix onto existing `release/1.4`, bump the version to `1.4.1`, and tag `v1.4.1`. |
-| **Pre-release** (`-rc.N`) | `1.5.0-rc.1` | Release candidate frozen for QA before the final ship | Bump to `1.5.0-rc.1` on `release/1.5`, tag `v1.5.0-rc.1`, and mark **Pre-release** on GitHub. |
+| **Pre-release** (`-rc.N`) | `1.5.0-rc.1` | Release candidate frozen for QA before the final ship | On `release/1.5`, set the version file to **`1.5.0`**, tag `v1.5.0-rc.1`, and mark **Pre-release** on GitHub. The `-rc.N` lives on the git/Docker tag, not in `package.json` / `.csproj`. See [DOCKER_RC_PROMOTION.md](./DOCKER_RC_PROMOTION.md). |
 
 If you are unsure whether a change is MAJOR, MINOR, or PATCH (especially anything that might break a public API, contract, CLI, or config), ask the **Architect** before the DevLead bumps the version.
 
@@ -238,10 +238,11 @@ main (1.5 work done)
         │  create release/1.5
         ▼
 release/1.5
-   ├─ bump to 1.5.0-rc.1  →  tag v1.5.0-rc.1  (GitHub: Pre-release)
+   ├─ Release PR: set version file to 1.5.0 + changelog
+   ├─ tag v1.5.0-rc.1  (GitHub: Pre-release; Docker: build 1.5.0-rc.1)
    ├─ QA finds bugs → fix on main → apply onto release/1.5
-   ├─ optional: 1.5.0-rc.2, …
-   └─ QA signs off → bump 1.5.0-rc.1 → 1.5.0 → tag v1.5.0  (GitHub: Latest)
+   ├─ optional: tag v1.5.0-rc.2, … (version file stays 1.5.0)
+   └─ QA signs off → tag v1.5.0 + promote Docker RC→final  (GitHub: Latest)
 ```
 
 #### How it fits the principles
@@ -250,7 +251,7 @@ release/1.5
 | --- | --- |
 | One trunk | Feature work for `1.5` still finishes on `main` before you create `release/1.5`. |
 | One `release/X.Y` per new release | `rc.1`, `rc.2`, and final `1.5.0` all live on **the same** `release/1.5`. |
-| Fix on `main`, apply onto release, tag | Bugs found during RC QA still land on `main` first, then are applied onto `release/1.5` (manually or with `git cherry-pick`). The RC version bump stays release-only — do not copy it to `main`. |
+| Fix on `main`, apply onto release, tag | Bugs found during RC QA still land on `main` first, then are applied onto `release/1.5` (manually or with `git cherry-pick`). Setting the version file to `1.5.0` stays release-only — do not copy it to `main`. |
 
 #### What a pre-release is / is not
 
@@ -265,9 +266,50 @@ release/1.5
 | `v1.4.1` | Patch on an **already shipped** line (`1.4.0` → `1.4.1`) |
 | `v1.5.0-rc.1` | Candidate for the **first** `1.5.0` ship, still on the QA path |
 
-So a pre-release is the optional middle step **between creating `release/X.Y` and tagging the final `vX.Y.0`**. Same branch, same fix rules; only the version string and the GitHub **Pre-release** flag differ.
+So a pre-release is the optional middle step **between creating `release/X.Y` and tagging the final `vX.Y.0`**. Same branch, same fix rules.
 
-Step-by-step when cutting a release with an RC: [section 8.1](#81-cut-the-next-release-while-main-moves-on). Bugs found while QA is on an RC: [section 8.2](#82-a-bug-shows-up-while-that-release-is-freezing).
+#### Version file vs RC tag (default)
+
+**Practical default:** in the **Release PR** (step B), write the **final** SemVer in the version file immediately. Do **not** put `1.5.0-rc.1` in the version file. The `-rc.N` suffix is only for **candidates** (git tag, GHCR tag, GitHub Pre-release flag).
+
+```json
+"version": "1.5.0"
+```
+
+```xml
+<Version>1.5.0</Version>
+```
+
+| Place | During RC (steps C–D) | After QA sign-off (step E) |
+| --- | --- | --- |
+| Version file (`package.json`, `.csproj`, …) | `1.5.0` | `1.5.0` (unchanged — already set in the Release PR) |
+| Git tag | `v1.5.0-rc.1` | `v1.5.0` |
+| Docker / GHCR tag | `1.5.0-rc.1` (**build**) | `1.5.0` (**promote** same digest — no rebuild) |
+| GitHub Release | **Pre-release** | **Latest** |
+
+That way the RC image already embeds `1.5.0`, so promoting to `:1.5.0` does not change what the app reports as its version.
+
+##### At QA sign-off: two different writes
+
+Sign-off is when the **final** ship happens. They are two separate actions (the version file was already written in step B):
+
+| What | What gets set |
+| --- | --- |
+| **Git tag** on `release/1.5` | `v1.5.0` (version file already says `1.5.0`) |
+| **GHCR image tag** | New tag `1.5.0` on the **same digest** as the last RC (e.g. `1.5.0-rc.1` or `rc.2`) — promote, no rebuild |
+
+Then publish the GitHub Release as **Latest**, and run the promote workflow so container tag `1.5.0` matches the RC digest ([DOCKER_RC_PROMOTION.md](./DOCKER_RC_PROMOTION.md)).
+
+##### Nuance (why we do not put `-rc.1` in the version file)
+
+If the version file said `1.5.0-rc.1` during the RC build, and you later bumped the file to `1.5.0` only at sign-off:
+
+- Image `:1.5.0` (promoted) would still contain whatever was baked at RC build time (`1.5.0-rc.1`).
+- Git tag `v1.5.0` would point at a newer commit where the file says `1.5.0`.
+
+That mismatch is why our default writes **`1.5.0` in the Release PR** and keeps `-rc.N` on tags only. If you must change bytes inside the image for the final version string, you would rebuild and re-QA — which we advise against for RC → final.
+
+Full **A–E** flow: [section 8.1](#81-cut-the-next-release-while-main-moves-on). Bugs during RC QA: [section 8.2](#82-a-bug-shows-up-while-that-release-is-freezing). GHCR Actions: [DOCKER_RC_PROMOTION.md](./DOCKER_RC_PROMOTION.md).
 
 ---
 
@@ -353,7 +395,9 @@ Two workflows cover most weeks. The first never touches a release branch. The se
 
 ### 5.1 Build day — a feature (or unreleased fix) on `main`
 
-**At this moment.** You are building the next version on `main` (either before the repository’s very first `release/X.Y` branch is cut, or while consumers run `v1.4.0` from `release/1.4` and `1.5` is being built on `main`). You are adding CSV export of invoices.
+**At this moment.** You are building the next version on `main` (either before the repository’s very first `release/X.Y` branch is cut, or while consumers run `v1.4.0` from `release/1.4` and `1.5` is being built on `main`).
+
+**Example feature:** add CSV export of invoices (any other new user story works the same way).
 
 You will only touch `main`. Even if `release/1.4` exists, CSV export is new `1.5` work, not a `1.4` patch.
 
@@ -394,7 +438,7 @@ sequenceDiagram
 
 A bug fix for unreleased code (or in a repo that has no `release/X.Y` branches yet) follows the exact same steps: name the branch `fix/<short-name>`, merge to `main`, and stop.
 
-### 5.2 Fix day — consumers are on 1.4, and 1.5 is still only on `main`
+### 5.2 Fix day — consumers are on 1.4, `main` is under development for 1.5
 
 **At this moment.** `release/1.4` is the current line consumers run (latest tag `v1.4.0`). `main` holds unreleased `1.5` work. `release/1.3` still exists on the remote, but `1.3` only accepts security and critical fixes.
 
@@ -541,8 +585,8 @@ flowchart TD
 
 | You are looking at | Go to |
 | --- | --- |
-| A feature, or a fix when no `release/X.Y` branch has the bug yet | [5.1](#51-build-day-a-feature-or-unreleased-fix-on-main) |
-| Consumers are on 1.4, 1.5 is only on `main`, and 1.4 has the bug | [5.2](#52-fix-day-consumers-are-on-14-and-15-is-still-only-on-main) |
+| **Most days:** a feature, or a fix when no `release/X.Y` branch has the bug yet (PR into `main` only — common daily work) | [5.1](#51-build-day--a-feature-or-unreleased-fix-on-main) |
+| Consumers are on 1.4, `main` is under development for release 1.5, and 1.4 still has the bug | [5.2](#52-fix-day--consumers-are-on-14-main-is-under-development-for-15) |
 | How a release candidate (`-rc.N`) fits for QA | [2.4](#24-pre-releases-release-candidates--for-qa) |
 | A version on `main` is feature-complete and ready to freeze | [8.1](#81-cut-the-next-release-while-main-moves-on) |
 | QA finds a bug on the frozen 1.5 candidate | [8.2](#82-a-bug-shows-up-while-that-release-is-freezing) |
@@ -578,7 +622,19 @@ Run `git fetch origin --tags`, list `origin/release/*` branches, and check the l
 
 Previously, teams released directly from `main` (or merged `develop` into `main`). Under this guide, when `1.5` (or your very first release) is feature-complete on `main`, you create `release/1.5` from `main`. That gives QA a stable branch while `main` stays open for `1.6` work.
 
-#### Example 1 — This repository has new commits and will ship a new minor tag (with a release candidate)
+**One flow (A–E):**
+
+| | Step | What happens |
+| --- | --- | --- |
+| **A** | Cut | Create `release/1.5` from `main` |
+| **B** | Release PR | PR into `release/1.5` → version file = `1.5.0` + changelog |
+| **C** | RC tag | Tag `v1.5.0-rc.1` (GitHub **Pre-release**) → Docker **build** |
+| **D** | QA / fixes | Version file stays `1.5.0`; optional `v1.5.0-rc.2` after fixes |
+| **E** | Final | Tag `v1.5.0` + Docker **promote** (same digest, no rebuild) |
+
+#### Example 1 — New commits; ship a new minor (with RC)
+
+##### A. Cut `release/1.5` from `main`
 
 1. Create `release/1.5` from the current tip of `origin/main` and push it. Do this once:
    ```bash
@@ -586,16 +642,48 @@ Previously, teams released directly from `main` (or merged `develop` into `main`
    git switch -c release/1.5 origin/main
    git push -u origin release/1.5
    ```
-2. On `release/1.5` only, open a pull request (**base:** `release/1.5`) that sets the version file to `1.5.0-rc.1` and updates the `1.5` changelog. Tag `v1.5.0-rc.1` after merge and mark it as a **pre-release** on GitHub. This commit is release-only; do not copy it to `main`.
-3. Announce the cut: `1.6` feature work can now merge to `main`. Any bug fix needed for `1.5` must land on `main` first and be cherry-picked onto `release/1.5`.
-4. QA tests the candidate. Bugs found during stabilization follow [section 8.2](#82-a-bug-shows-up-while-that-release-is-freezing).
-5. When QA signs off, open a pull request on `release/1.5` bumping `1.5.0-rc.1` → `1.5.0`, merge it, tag `v1.5.0` on `release/1.5`, and publish the GitHub Release ([section 8.8](#88-tag-the-build-and-publish-the-github-release)).
+2. Announce the cut: `1.6` feature work can now merge to `main`. Any bug fix needed for `1.5` must land on `main` first and be cherry-picked onto `release/1.5`.
+
+##### B. Release PR into `release/1.5` → version file = `1.5.0` + changelog
+
+3. From `release/1.5`, create a short-lived branch and open a pull request with **base = `release/1.5`** (never `main`):
+   ```bash
+   git switch release/1.5
+   git pull
+   git switch -c release/1.5-version-1.5.0
+   # edit package.json / .csproj / … → 1.5.0
+   # edit CHANGELOG.md for the 1.5.0 ship
+   git commit -am "Release 1.5.0"
+   git push -u origin HEAD
+   # open PR: base release/1.5 ← release/1.5-version-1.5.0  title: Release 1.5.0
+   ```
+4. In that PR, set the version file to **`1.5.0`** (final SemVer, **not** `1.5.0-rc.1`) and update the changelog. Review and merge into `release/1.5`. This commit is release-only; do not copy it to `main`.
+
+##### C. Tag `v1.5.0-rc.1` (Pre-release) → Docker build
+
+5. On the merged tip of `release/1.5`, create annotated tag `v1.5.0-rc.1`, push it, and publish a GitHub Release marked **Pre-release**. CI builds GHCR `…:1.5.0-rc.1`. The `-rc.1` is on the **git/Docker tag only**; the version file already says `1.5.0`. Details: [DOCKER_RC_PROMOTION.md](./DOCKER_RC_PROMOTION.md), [section 8.8](#88-tag-the-build-and-publish-the-github-release).
+
+##### D. QA / fixes (version stays `1.5.0`; optional `rc.2`)
+
+6. QA tests the candidate. Bugs found during stabilization follow [section 8.2](#82-a-bug-shows-up-while-that-release-is-freezing): fix on `main` first, cherry-pick onto `release/1.5`. Version file stays **`1.5.0`**. Each new candidate after a fix is a new tag (`v1.5.0-rc.2`, …) and a new Docker **build**.
+
+##### E. Tag `v1.5.0` + Docker promote
+
+7. When QA signs off, do **two writes** (version file already says `1.5.0` from step B — do not bump it again):
+
+   | What | What gets set |
+   | --- | --- |
+   | **Git tag** on `release/1.5` | `v1.5.0` |
+   | **GHCR image tag** | Promote last RC digest → new tag `1.5.0` (no rebuild) |
+
+   Publish the GitHub Release as **Latest**. Promote commands and Actions: [DOCKER_RC_PROMOTION.md](./DOCKER_RC_PROMOTION.md). Policy detail: [Version file vs RC tag](#version-file-vs-rc-tag-default).
 
 ```mermaid
 gitGraph
     commit id: "features done"
     branch "release/1.5"
     checkout "release/1.5"
+    commit id: "Release PR 1.5.0"
     commit id: "v1.5.0-rc.1"
     checkout main
     commit id: "first 1.6 work"
@@ -605,9 +693,9 @@ gitGraph
     commit id: "v1.5.0"
 ```
 
-In that diagram, the QA fix lands on `main` first, and `QA fix picked` is its cherry-pick onto `release/1.5`. The `v1.5.0` version bump stays on the release branch, and tag `v1.5.0` points to that commit.
+In that diagram, **Release PR 1.5.0** is the version/changelog merge on `release/1.5`. The QA fix lands on `main` first, then is cherry-picked onto `release/1.5`. Tag `v1.5.0` points at the signed-off release-branch tip (version file still `1.5.0`).
 
-If your team freezes without release candidates, skip the `1.5.0-rc.1` bump: cut `release/1.5`, cherry-pick stabilization fixes, bump straight to `1.5.0` on `release/1.5`, and tag `v1.5.0`.
+If your team freezes without release candidates: cut `release/1.5`, merge the same **Release 1.5.0** PR (version file `1.5.0`), skip `-rc` tags, and tag `v1.5.0` after QA.
 
 #### Example 2 — This component has not changed since its previous release
 
