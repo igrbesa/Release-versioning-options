@@ -92,11 +92,13 @@ gitGraph
     commit id: "feature/a"
     commit id: "feature/b"
     branch "release/1.3"
+    commit id: "1.3.0-rc.1" tag: "v1.3.0-rc.1"
     commit id: "1.3.0" tag: "v1.3.0"
     checkout main
     commit id: "feature/c"
     commit id: "feature/d"
     branch "release/1.4"
+    commit id: "1.4.0-rc.1" tag: "v1.4.0-rc.1"
     commit id: "1.4.0" tag: "v1.4.0"
     checkout main
     commit id: "feature/e"
@@ -144,6 +146,7 @@ gitGraph
     cherry-pick id: "hotfix/token"
     commit id: "feature/j"
     branch "release/1.6"
+    commit id: "1.6.0-rc.1" tag: "v1.6.0-rc.1"
     commit id: "1.6.0" tag: "v1.6.0"
     checkout main
     commit id: "fix/typo" type: HIGHLIGHT
@@ -158,15 +161,14 @@ Highlighted commits are fixes. Each `cherry-pick` on a release branch is the sam
 
 In that diagram, left to right:
 
-1. **Build and cut.** Features land on `main`. Cut `release/1.3` → `v1.3.0`, then more features, cut `release/1.4` → `v1.4.0`. Features never start on a release branch.
+1. **Build and cut (with RC).** Features land on `main`. Every new minor freezes the same way: cut `release/X.Y`, tag `vX.Y.0-rc.1` for QA, then tag final `vX.Y.0`. Shown for `1.3` and `1.4` (and later `1.5` / `1.6`). Features never start on a release branch. RC bumps stay release-only — do not copy them to `main`.
 2. **Normal bug on the current line.** `fix/login` lands on `main` first, then only onto `release/1.4` (`v1.4.1`). `release/1.3` is the previous minor, so it does **not** get a normal bug fix.
 3. **Security / critical on current + previous.** `fix/auth-sec` lands on `main`, then onto `release/1.4` (`v1.4.2`) and `release/1.3` (`v1.3.1`). Newest qualifying line first.
-4. **Freeze with a release candidate.** Cut `release/1.5`, tag `v1.5.0-rc.1` (release-only; not copied to `main`). `1.6` features already continue on `main`.
-5. **QA bug while freezing.** `fix/qa-freeze` lands on `main` first, then onto `release/1.5`, then final `v1.5.0`. Do not “merge the whole release branch back into `main`.”
-6. **Normal bug after `1.5` shipped.** `fix/export` goes to `main` and only `release/1.5` (`v1.5.1`). `release/1.4` is now previous minor — no normal patches there.
-7. **Security after `1.5` shipped.** `fix/crypto-sec` goes to `main`, then `release/1.5` (`v1.5.2`), then `release/1.4` (`v1.4.3`). `release/1.3` is out of support — no commit (branch kept, not deleted).
-8. **Forward-port (urgent fix on the release line first).** Rare path: `hotfix/token` is applied on `release/1.5` and tagged `v1.5.3`, then the **same fix only** is copied onto `main`. Never merge the whole `release/1.5` branch into `main`.
-9. **Next minor, and out-of-support stays quiet.** Cut `release/1.6` → `v1.6.0`. A later normal `fix/typo` ships only on `release/1.6` (`v1.6.1`). `release/1.4` and `release/1.3` stay on the remote with no further normal backports. `main` keeps moving toward `1.7`.
+4. **QA bug while an RC is freezing.** Cut `release/1.5` → `v1.5.0-rc.1`. `fix/qa-freeze` lands on `main` first, then onto `release/1.5`, then final `v1.5.0`. Do not “merge the whole release branch back into `main`.” (`1.6` features already continue on `main` during this freeze.)
+5. **Normal bug after `1.5` shipped.** `fix/export` goes to `main` and only `release/1.5` (`v1.5.1`). `release/1.4` is now previous minor — no normal patches there.
+6. **Security after `1.5` shipped.** `fix/crypto-sec` goes to `main`, then `release/1.5` (`v1.5.2`), then `release/1.4` (`v1.4.3`). `release/1.3` is out of support — no commit (branch kept, not deleted).
+7. **Forward-port (urgent fix on the release line first).** Rare path: `hotfix/token` is applied on `release/1.5` and tagged `v1.5.3`, then the **same fix only** is copied onto `main`. Never merge the whole `release/1.5` branch into `main`.
+8. **Next minor, and out-of-support stays quiet.** Cut `release/1.6` → `v1.6.0-rc.1` → `v1.6.0`. A later normal `fix/typo` ships only on `release/1.6` (`v1.6.1`). `release/1.4` and `release/1.3` stay on the remote with no further normal backports. `main` keeps moving toward `1.7`.
 
 ---
 
